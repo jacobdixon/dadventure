@@ -6,7 +6,7 @@ Live at https://jacobdixon.github.io/dadventure/
 ## Files
 - `index.html` — the whole app. Loads the two data files below; no build step.
 - `dadventure.md` — the letters. Edit this to change anything on the page.
-- `timeline.json` — the route, one entry per day, made from a Google Maps Timeline export.
+- `timeline.json` — the map data, one entry per day, each with a list of "scenes" (a cleaned route, flight lines, and named pins). Built from a Google Maps Timeline export and then curated by hand.
 - `photos/` — put the photos here, named as listed in each day's `photos:` line.
 
 ## Map
@@ -24,16 +24,21 @@ Each day in `dadventure.md` looks like:
 
     The letter, exactly as you want it to read...
 
-The `date:` line is what links a letter to its route. The `place:` line is the heading. Photos are optional.
+The `date:` line is what links a letter to its map scenes. The `place:` line is the heading. Photos are optional.
 
 ## Splitting a day into cards
-A line with just `---` splits a day into cards. The page cuts each day's route into legs
-(flights, long drives, "around town" stretches) and hands them to the cards in order.
-To pin a card to a specific stretch of the day, add `leg: 09:00-12:11` right after the `---`.
+A line with just `---` splits a day into cards. Each card shows the matching scene for its day
+from `timeline.json`, in order (first card, first scene). If a day has more cards than scenes the
+extras reuse the last scene. To point a card at a different scene, add `scene: 2` after the `---`.
 Photos listed on the day go on its first card; add a `photos:` line after a `---` for later cards.
 
+## Changing what the map shows
+Each scene in `timeline.json` has `label`, `route` (list of [lat, lng]), `flights` (list of
+[[lat,lng],[lat,lng]] pairs, drawn dashed), and `pins` (list of `{name, lat, lng}`). Add a pin by
+adding to that list; remove one by deleting it. A scene with only pins zooms to the pins.
+
 ## Adding a day
-Copy any block, paste it at the bottom, change the day number, date, and text. If the day exists in `timeline.json` the map will follow; if not, the letter still shows, just without a route.
+Copy any block, paste it at the bottom, change the day number, date, and text. If the day exists in `timeline.json` the map will follow; if not, the letter still shows, just without a map scene.
 
 ## Viewing locally
 `index.html` needs to be served (browsers block file:// fetches): `python3 -m http.server` in this folder, then open http://localhost:8000.
