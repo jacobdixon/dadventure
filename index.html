@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Dadventure</title>
+<meta name="description" content="Fourteen days of letters home, on a map.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..900,0..100,0..1;1,9..144,300..900,0..100,0..1&family=Newsreader:ital,opsz,wght@0,6..72,400..600;1,6..72,400..600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+  :root{
+    --paper:#EEF1EA;
+    --paper-2:#E3E8DE;
+    --ink:#1C261C;
+    --ink-2:#4A574A;
+    --ink-3:#7E8A7C;
+    --route:#C8321F;
+    --route-soft:#E4A398;
+    --rule:#C9D0C4;
+    --card-w:640px;
+    --peek:14vh;      /* how much map shows above a card while it holds */
+    --gap:110vh;      /* map-only breathing room between cards; the zoom happens here */
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+  body{margin:0;background:var(--paper-2);color:var(--ink);font-family:"Newsreader",Georgia,serif;font-optical-sizing:auto;font-size:19px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  a{color:var(--route);text-decoration-thickness:1px;text-underline-offset:3px}
+  a:focus-visible{outline:3px solid #F2D14F;outline-offset:2px}
+
+  /* ---------- map backdrop ---------- */
+  #map{position:fixed;inset:0;z-index:0;background:var(--paper-2)}
+  #canvas{width:100%;height:100%}
+  .leaflet-container{font-family:inherit;background:var(--paper-2)}
+  .leaflet-control-attribution{font-size:9px;background:rgba(238,241,234,.8)}
+  .maplabel{
+    position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:5;pointer-events:none;
+    background:var(--ink);color:var(--paper);font-family:"Fraunces",serif;font-weight:500;font-size:14px;
+    padding:6px 13px;border-radius:999px;white-space:nowrap;max-width:92vw;overflow:hidden;text-overflow:ellipsis;
+    opacity:0;transition:opacity .4s
+  }
+  .maplabel.on{opacity:1}
+  .maplabel small{font-family:"Newsreader",serif;font-weight:400;opacity:.8;margin-left:8px}
+
+  /* ---------- opaque page ends ---------- */
+  .hero,.end{position:relative;z-index:2;background:var(--paper)}
+  .hero{padding:clamp(28px,7vw,64px) 22px 40px;border-bottom:1px solid var(--rule)}
+  .hero>div,.end>div{max-width:var(--card-w);margin:0 auto}
+  .hero h1{font-family:"Fraunces",serif;font-variation-settings:"opsz" 144,"SOFT" 40,"WONK" 1;font-weight:600;font-size:clamp(56px,16vw,104px);line-height:.9;letter-spacing:-.02em;margin:0 0 14px}
+  .hero .to{font-style:italic;font-size:22px;margin:0 0 6px}
+  .hero .dates{color:var(--ink-2);margin:0}
+  .hero .totals{margin:22px 0 0;display:grid;grid-template-columns:repeat(3,auto);justify-content:start;gap:16px 28px;color:var(--ink-2);font-size:16px}
+  .hero .totals b{display:block;font-family:"Fraunces",serif;font-weight:500;font-size:34px;line-height:1;color:var(--ink);font-variation-settings:"opsz" 72}
+  .hero .hint{margin:34px 0 0;color:var(--ink-3);font-style:italic;font-size:17px}
+  .end{padding:60px 22px 90px;border-top:1px solid var(--rule);color:var(--ink-2);font-style:italic}
+
+  /* ---------- scrolling story ---------- */
+  .story{position:relative;z-index:1}
+  .gap{height:var(--gap)}
+  .gap.first{height:100vh}
+  .card{
+    position:relative;max-width:var(--card-w);margin:0 12px;min-height:calc(100vh - var(--peek));
+    background:var(--paper);border-radius:14px;padding:26px 22px 30px;
+    box-shadow:0 -2px 0 rgba(28,38,28,.06),0 18px 50px rgba(28,38,28,.22)
+  }
+  @media (min-width:680px){.card{margin:0 auto}}
+  .card header{display:grid;grid-template-columns:auto 1fr;gap:4px 16px;align-items:baseline;margin-bottom:16px}
+  .card .n{grid-row:span 2;font-family:"Fraunces",serif;font-variation-settings:"opsz" 144,"WONK" 1;font-weight:700;font-size:60px;line-height:.85;letter-spacing:-.03em;color:var(--route)}
+  .card .n.cont{color:var(--route-soft)}
+  .card .place{font-family:"Fraunces",serif;font-weight:500;font-size:22px;line-height:1.2;font-variation-settings:"opsz" 48}
+  .card .meta{color:var(--ink-2);font-size:16px}
+  .card .meta span+span::before{content:"";display:inline-block;width:4px;height:4px;border-radius:50%;background:var(--ink-3);margin:0 9px 3px}
+  .photos{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:0 0 18px}
+  .photos figure{margin:0;aspect-ratio:4/3;background:var(--paper-2);overflow:hidden;border-radius:6px;position:relative}
+  .photos figure:first-child:nth-last-child(odd){grid-column:span 2;aspect-ratio:3/2}
+  .photos img{width:100%;height:100%;object-fit:cover;display:block}
+  .photos .missing{position:absolute;inset:0;display:grid;place-items:center;padding:10px;text-align:center;color:var(--ink-3);font-size:13px;border:1px dashed var(--rule);border-radius:6px;font-style:italic}
+  .letter p{margin:0 0 1.1em;white-space:pre-line;max-width:60ch}
+  .letter p:last-child{margin-bottom:0}
+  .letter .sig{font-family:"Fraunces",serif;font-style:italic;font-weight:500}
+
+  /* ---------- desktop: cards ride the right side so the map stays readable on the left ---------- */
+  @media (min-width:1000px){
+    :root{--card-w:560px}
+    .card{margin:0 6vw 0 auto}
+    .hero>div,.end>div{max-width:720px}
+  }
+</style>
+</head>
+<body>
+
+<div id="map" aria-hidden="true"><div id="canvas"></div></div>
+<div class="maplabel" id="maplabel"></div>
+
+<header class="hero"><div>
+  <h1 id="title">Dadventure</h1>
+  <p class="to" id="to"></p>
+  <p class="dates" id="dates"></p>
+  <div class="totals" id="totals"></div>
+  <p class="hint">Keep scrolling. The map follows the letters.</p>
+</div></header>
+
+<div class="story" id="story"></div>
+
+<footer class="end"><div id="end"></div></footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+const CONTENT_URL='dadventure.md', ROUTE_URL='timeline.json', PHOTO_DIR='photos/';
+const GOOGLE_MAPS_KEY='AIzaSyCWrlk6_XEtv_kE-oOaaOiYi5SxYJb50S8';   // paste your key here to use Google's terrain map; leave empty for Esri World Topo
+const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ---------- content parser: days -> cards ---------- */
+function parseContent(src){
+  src=src.replace(/\r\n/g,'\n');
+  const fm={}; let body=src;
+  const m=src.match(/^---\n([\s\S]*?)\n---\n?/);
+  if(m){ m[1].split('\n').forEach(l=>{const i=l.indexOf(':'); if(i>0) fm[l.slice(0,i).trim()]=l.slice(i+1).trim();}); body=src.slice(m[0].length); }
+  body=body.replace(/<!--[\s\S]*?-->/g,'');
+  const readMeta=lines=>{const meta={}; while(lines.length && /^[a-z]+:\s*.*$/i.test(lines[0]) && !/^https?:/i.test(lines[0])){const l=lines.shift();const i=l.indexOf(':');meta[l.slice(0,i).trim().toLowerCase()]=l.slice(i+1).trim();} return meta;};
+  const days=[];
+  body.split(/\n(?=## )/).map(s=>s.trim()).filter(s=>s.startsWith('## ')).forEach(block=>{
+    const chunks=block.split(/\n---\n/);
+    const lines=chunks[0].split('\n'); const heading=lines.shift().replace(/^##\s*/,'');
+    const meta=readMeta(lines);
+    const nm=heading.match(/\d+/);
+    const day={n:nm?+nm[0]:days.length+1, date:meta.date||'', place:meta.place||heading, cards:[]};
+    const first={text:lines.join('\n').trim(), photos:splitList(meta.photos), leg:meta.leg||''};
+    day.cards.push(first);
+    chunks.slice(1).forEach(c=>{const ls=c.trim().split('\n'); const mm=readMeta(ls); day.cards.push({text:ls.join('\n').trim(), photos:splitList(mm.photos), leg:mm.leg||''});});
+    days.push(day);
+  });
+  return {fm,days};
+}
+const splitList=s=>(s||'').split(',').map(x=>x.trim()).filter(Boolean);
+const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+function renderLetter(text){
+  const paras=text.split(/\n\s*\n/);
+  return paras.map((p,i)=>{
+    let h=esc(p.replace(/\\([<>*])/g,'$1'));
+    h=h.replace(/(https?:\/\/[^\s<]+)/g,u=>`<a href="${u}" target="_blank" rel="noopener">${u.replace(/^https?:\/\/(www\.)?/,'').split('/')[0]}</a>`);
+    const sig=i===paras.length-1 && /^(love|miss you|lots of love|dad|oh canada)/i.test(p.trim());
+    return `<p${sig?' class="sig"':''}>${h}</p>`;
+  }).join('');
+}
+const fmtDate=d=>{const [y,m,dd]=d.split('-').map(Number);return new Date(y,m-1,dd).toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});};
+
+/* ---------- legs: hand each card a stretch of the day's route ---------- */
+function describe(legs, mi){
+  const kinds=new Set(legs.map(L=>L.kind));
+  if(kinds.has('flight')) return `Flight, ${mi.toLocaleString()} mi`;
+  if(kinds.has('drive') && mi) return `Drive, ${mi.toLocaleString()} mi`;
+  return 'On foot and around town';
+}
+function legForRange(day, range){
+  const [a,b]=range.split(/\s*-\s*/);
+  const legs=day.legs.filter(L=>L.end>a && L.start<b);
+  const mi=legs.filter(L=>L.start>=a && L.end<=b).reduce((s,L)=>s+L.mi,0);
+  return {line:legs.flatMap(L=>L.line), label:describe(legs,mi)};
+}
+function assignLegs(dayContent, route){
+  const cards=dayContent.cards, legs=route?route.legs:[];
+  if(!legs.length) return cards.map(()=>null);
+  const N=cards.length, M=legs.length, groups=[];
+  if(N<=M){ let start=0; for(let i=0;i<N;i++){const size=Math.floor(M/N)+(i<M%N?1:0); groups.push(legs.slice(start,start+size)); start+=size;} }
+  else { for(let i=0;i<N;i++) groups.push([legs[Math.min(i,M-1)]]); }
+  return cards.map((c,i)=>{
+    if(c.leg) return legForRange(route,c.leg);
+    const g=groups[i]; return {line:g.flatMap(L=>L.line), label:describe(g,g.reduce((s,L)=>s+L.mi,0))};
+  });
+}
+
+/* ---------- map: Google terrain if a key is set, otherwise Esri topo via Leaflet ---------- */
+const dist=(a,b)=>{const R=3959,t=Math.PI/180,dl=(b[0]-a[0])*t,dn=(b[1]-a[1])*t;const h=Math.sin(dl/2)**2+Math.cos(a[0]*t)*Math.cos(b[0]*t)*Math.sin(dn/2)**2;return 2*R*Math.asin(Math.sqrt(h));};
+function splitFlights(line){ // break the line where it jumps >80 mi (flights) so those legs draw dashed
+  const ground=[],air=[]; let seg=[];
+  for(let k=0;k<line.length;k++){ seg.push(line[k]); const nx=line[k+1]; if(nx && dist(line[k],nx)>80){ if(seg.length>1) ground.push(seg); air.push([line[k],nx]); seg=[]; } }
+  if(seg.length>1) ground.push(seg); return {ground,air};
+}
+const STYLE={ soft:{ground:{color:'#C8321F',weight:2,opacity:.35},air:{color:'#C8321F',weight:1.2,opacity:.3,dash:true}},
+              hot:{casing:{color:'#FFFFFF',weight:5,opacity:.6},ground:{color:'#C8321F',weight:2.5,opacity:.85},air:{color:'#C8321F',weight:2,opacity:.85,dash:true}} };
+function padding(){
+  const w=innerWidth;
+  if(w>=1000) return {top:80,left:40,right:Math.round(w*0.5),bottom:40};
+  return {top:84,left:28,right:28,bottom:Math.round(innerHeight*0.25)};
+}
+let ALL=[], mapApi;
+
+/* Leaflet + Esri World Topo */
+const leafletMap={
+  active:null,
+  init(){
+    this.map=L.map('canvas',{zoomControl:false,dragging:false,touchZoom:false,scrollWheelZoom:false,doubleClickZoom:false,boxZoom:false,keyboard:false,tap:false,zoomSnap:.1});
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'Tiles &copy; Esri &mdash; Esri, HERE, Garmin, USGS, NGA, and others'}).addTo(this.map);
+    addEventListener('resize',()=>this.map.invalidateSize());
+  },
+  line(pts,st,group){ return L.polyline(pts,{color:st.color,weight:st.weight,opacity:st.opacity,dashArray:st.dash?'2 8':null,lineCap:'round',lineJoin:'round',interactive:false}).addTo(group||this.map); },
+  draw(line,style,group){ const {ground,air}=splitFlights(line); if(style.casing) ground.forEach(s=>this.line(s,style.casing,group)); ground.forEach(s=>this.line(s,style.ground,group)); air.forEach(s=>this.line(s,style.air,group)); },
+  whole(routes){ routes.forEach(r=>this.draw(r.legs.flatMap(L=>L.line),STYLE.soft)); },
+  focus(view,force){
+    if(this.active){this.map.removeLayer(this.active);this.active=null;}
+    let pts=ALL;
+    if(view){ this.active=L.layerGroup().addTo(this.map); this.draw(view.line,STYLE.hot,this.active); pts=view.line; }
+    if(!pts.length) return;
+    const p=padding(), b=L.latLngBounds(pts).pad(pts.length<3?.5:.02);
+    const opts={paddingTopLeft:[p.left,p.top],paddingBottomRight:[p.right,p.bottom],maxZoom:15};
+    if(REDUCED || !this.map._loaded || force) this.map.fitBounds(b,{...opts,animate:false}); else this.map.flyToBounds(b,{...opts,duration:1.1,easeLinearity:.35});
+  }
+};
+
+/* Google Maps terrain */
+const googleMap={
+  active:[],
+  async init(){
+    await new Promise((res,rej)=>{window.__gmReady=res;const sc=document.createElement('script');sc.src=`https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_KEY}&v=weekly&loading=async&callback=__gmReady`;sc.onerror=rej;document.head.appendChild(sc);});
+    this.map=new google.maps.Map(document.getElementById('canvas'),{mapTypeId:'terrain',disableDefaultUI:true,gestureHandling:'none',keyboardShortcuts:false,clickableIcons:false,center:{lat:44,lng:-90},zoom:4});
+  },
+  line(pts,st,bucket){
+    const opts={path:pts.map(p=>({lat:p[0],lng:p[1]})),strokeColor:st.color,strokeOpacity:st.dash?0:st.opacity,strokeWeight:st.weight,clickable:false,map:this.map};
+    if(st.dash) opts.icons=[{icon:{path:'M 0,-1 0,1',strokeOpacity:st.opacity,strokeWeight:st.weight,scale:1.5},offset:'0',repeat:'12px'}];
+    const pl=new google.maps.Polyline(opts); if(bucket) bucket.push(pl); return pl;
+  },
+  draw(line,style,bucket){ const {ground,air}=splitFlights(line); if(style.casing) ground.forEach(s=>this.line(s,style.casing,bucket)); ground.forEach(s=>this.line(s,style.ground,bucket)); air.forEach(s=>this.line(s,style.air,bucket)); },
+  whole(routes){ routes.forEach(r=>this.draw(r.legs.flatMap(L=>L.line),STYLE.soft)); },
+  focus(view){
+    this.active.forEach(pl=>pl.setMap(null)); this.active=[];
+    let pts=ALL;
+    if(view){ this.draw(view.line,STYLE.hot,this.active); pts=view.line; }
+    if(!pts.length) return;
+    const b=new google.maps.LatLngBounds(); pts.forEach(p=>b.extend({lat:p[0],lng:p[1]}));
+    if(pts.length<3){ const c=b.getCenter(); b.extend({lat:c.lat()+.03,lng:c.lng()+.03}); b.extend({lat:c.lat()-.03,lng:c.lng()-.03}); }
+    this.map.fitBounds(b,padding());
+    const z=this.map.getZoom(); if(z>15) this.map.setZoom(15);
+  }
+};
+async function initMap(){
+  mapApi = GOOGLE_MAPS_KEY ? googleMap : leafletMap;
+  // If Google rejects the key (not enabled, wrong referrer, billing off) fall back to Esri so the page still works
+  window.gm_authFailure=()=>{ console.warn('Google Maps rejected the key; using Esri World Topo instead.'); const c=document.getElementById('canvas'); c.replaceWith(Object.assign(document.createElement('div'),{id:'canvas'})); mapApi=leafletMap; leafletMap.init(); mapApi.whole(ROUTES); onScroll(true); };
+  try{ await mapApi.init(); }catch(e){ mapApi=leafletMap; await mapApi.init(); }
+}
+let ROUTES=[];
+function drawWholeTrip(routes){ ROUTES=routes; routes.forEach(r=>ALL.push(...r.legs.flatMap(L=>L.line))); mapApi.whole(routes); }
+function focus(view,force){ mapApi.focus(view,force); }
+
+/* ---------- build ---------- */
+let CARDS=[], active=null, points=[];
+async function main(){
+  let md,tl;
+  try{ [md,tl]=await Promise.all([fetch(CONTENT_URL).then(r=>r.text()),fetch(ROUTE_URL).then(r=>r.json())]); }
+  catch(e){ if(window.__INLINE){md=window.__INLINE.md;tl=window.__INLINE.tl;} else {document.getElementById('story').innerHTML='<div class="card"><p>Could not load <code>dadventure.md</code> / <code>timeline.json</code>. Open the page from a web server (or GitHub Pages), or open preview.html.</p></div>';return;} }
+  const {fm,days}=parseContent(md);
+  const byDate=Object.fromEntries(tl.map(r=>[r.date,r]));
+
+  document.getElementById('title').textContent=fm.title||'Dadventure'; document.title=fm.title||'Dadventure';
+  const to=splitList(fm.to);
+  document.getElementById('to').textContent=to.length?`Letters home to ${to.length>1?to.slice(0,-1).join(', ')+' and '+to.at(-1):to[0]}`:(fm.subtitle||'');
+  if(days.length) document.getElementById('dates').textContent=`${fmtDate(days[0].date)} to ${fmtDate(days.at(-1).date)}, ${days.at(-1).date.slice(0,4)}`;
+  const used=days.map(d=>byDate[d.date]).filter(Boolean);
+  const ground=used.reduce((s,r)=>s+r.groundMi,0), air=used.reduce((s,r)=>s+r.flightMi,0);
+  document.getElementById('totals').innerHTML=`<div><b>${days.length}</b>days</div><div><b>${ground.toLocaleString()}</b>miles on the ground</div><div><b>${air.toLocaleString()}</b>miles in the air</div>`;
+  document.getElementById('end').textContent='Written on the road, one night at a time.';
+
+  let html='<div class="gap first"></div>'; let k=0;
+  days.forEach(day=>{
+    const views=assignLegs(day, byDate[day.date]);
+    day.cards.forEach((c,ci)=>{
+      const v=views[ci]; CARDS.push({day,card:c,view:v});
+      const photos=c.photos.length?`<div class="photos">${c.photos.map(p=>`<figure><img src="${PHOTO_DIR+p}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'missing',textContent:'${esc(p)}'}))"></figure>`).join('')}</div>`:'';
+      html+=`<article class="card" data-k="${k++}">
+        <header><div class="n${ci?' cont':''}">${day.n}</div><div class="place">${esc(day.place)}</div>
+        <div class="meta"><span>${fmtDate(day.date)}</span>${v?`<span>${esc(v.label)}</span>`:''}</div></header>
+        ${photos}<div class="letter">${renderLetter(c.text)}</div></article><div class="gap"></div>`;
+    });
+  });
+  document.getElementById('story').innerHTML=html;
+
+  await initMap(); drawWholeTrip(used);
+  layout(); onScroll(true);
+  addEventListener('scroll',()=>onScroll(),{passive:true});
+  addEventListener('resize',()=>{layout();onScroll(true);});
+  document.fonts && document.fonts.ready.then(layout);
+}
+function layout(){
+  // activation point for card i = midpoint of the map-only gap before it
+  const cards=[...document.querySelectorAll('.card')];
+  let prevBottom=document.querySelector('.hero').getBoundingClientRect().bottom+scrollY;
+  points=cards.map(el=>{const r=el.getBoundingClientRect(); const top=r.top+scrollY; const p=(prevBottom+top)/2; prevBottom=r.bottom+scrollY; return p;});
+}
+function onScroll(force){
+  const y=scrollY+innerHeight*0.5; let i=-1;
+  for(let k=0;k<points.length;k++){ if(points[k]<y) i=k; else break; }
+  const label=document.getElementById('maplabel');
+  label.classList.toggle('on', scrollY>innerHeight*0.4);
+  if(i===active && !force) return; active=i;
+  if(i<0){ focus(null,force); label.innerHTML='The whole trip'; }
+  else { const c=CARDS[i]; focus(c.view,force); label.innerHTML=`Day ${c.day.n}${c.view?`<small>${esc(c.view.label)}</small>`:''}`; }
+}
+main();
+</script>
+</body>
+</html>
