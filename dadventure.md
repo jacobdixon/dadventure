@@ -12,12 +12,12 @@ Each day starts with a "## Day N" heading. The lines right under the heading
 the letter itself. Write whatever you want in the letter; it's plain text.
 Photos go in the /photos folder and are listed by filename, comma-separated.
 
-A line with just --- splits a day into cards. Each card gets its own piece of
-the map: the page cuts the day's route into legs (flights, long drives, and
-"around town" stretches) and hands them out to the cards in order. To pin a
-card to a specific stretch of the day, add a line like  leg: 09:00-12:11
-right after the --- (24-hour local time). Photos listed on the day go on the
-first card; add a photos: line after a --- to put photos on a later card.
+A line with just --- splits a day into cards. Each card shows the matching
+"scene" for that day from timeline.json, in order (first card, first scene).
+If a day has more cards than scenes, the extra cards reuse the last scene.
+To point a card at a different scene, add  scene: 2  right after the ---.
+Photos listed on the day go on the first card; add a photos: line after a
+--- to put photos on a later card.
 To add a day, copy any block and paste it at the bottom. That's it.
 -->
 
@@ -176,16 +176,14 @@ Love, Dad
 
 ## Day 10
 date: 2026-08-31
-place: Montreal → Burlington, VT → New Hampshire
+place: Montreal → Burlington, VT → Franconia, NH
 photos: 542.jpg, 545.jpg, 549.jpg, 550.jpg
-leg: 09:00-12:11
 
 Got up stupid early, 6:30a to do mount royale before we needed to be out of the apartment. Dros had lost his wallet the day before, we all did the Seinfeld bit, and today Dan's car keys were missing. I had borrowed the car to get supplies but he remembered me handing them back, so I was off the hook. I asked him if anyone else borrowed his car and he said yes, cal, to get the Portuguese chicken (which was amazing). Cal was at the airport about to board a flight and did indeed find Dan's keys in his shorts. So instead of hiking Mount Royale we chilled by the pool while Dan took a trip to his first of two airports today.
 
 He and I were last out of the house and drove across the border where I learned my Nexus card had not been activated. It was still accepted though. I also learned today that the bar where Phish got there start closed permanently last summer... Just missed it. So Dan and I had lunch at zero gravity brewpub in the microbrew district of Burlington Vermont.
 
 ---
-leg: 12:11-18:09
 
 I am now in New Hampshire and at another brewpub where I am having pizza outside at sunset!
 
@@ -252,7 +250,6 @@ Dad
 date: 2026-09-03
 place: Hartford, CT → Providence, RI → Cambridge, MA
 photos: PXL_20260903_131135839.jpg, PXL_20260903_134928472.MP.jpg, PXL_20260903_153805658.jpg, PXL_20260903_160548100.jpg, PXL_20260903_163137526.jpg, PXL_20260903_163634201.MACRO_FOCUS.jpg
-leg: 05:04-07:58
 
 i blasted out of boston before 7a this morning slicing through the new england fog with my mitsubishi and had a thought. I know I have to be at the Capitol to document evidence of my visit, but I hadn't considered that the Capitol has to be there too. i imagined people gathered around asking, is the "capitol out today?" Does it disappear like rainier does on days that aren't clear enough? We might never know, the skies cleared up as i rolled into Hartford, CT.
 
@@ -261,14 +258,12 @@ The coffee shop lay at such a distance that a man might reasonably pack a trunk 
 \*\*original paragraph before claude mark twain'd it: The coffee shop was again too far, poor capitol workers. and it splashed out of its cup on my way to mark twain's house. Cool house. Hartford is bumpy.
 
 ---
-leg: 07:58-11:34
 
 The road into providence was eerily quiet. like almost no traffic on the highway for about 30 miles, wither direction. The city was quaint and the capitol grand, really grande. I found of the oldest libraries in the US
 
 Then i went for hot dogs. They were good. hot wieners all the way (mustard, onion, chili). The ambiance was great, classic diner with large counter. The service was comical. It was like a goofball comedy where four gangsters are trying to launder money from the big heist by running a hot dog diner. "hey, how hard could it be?" I got there right at the lunch crush. One guy cooked the hot dogs, one dressed them and took to-go orders, one handled french fries and sammies, and the fourth managed sodas and for-here orders. so they would all call out what they need from each other... "two sodas, and a milk." "i need 4 dogs all day and 2 with no onions." but they couldn't remember the orders, nor who they belonged to. you kinda had to piece your order together by talking to each guy. Mine was like a three-course meal. fries, then later hot dogs, and the coke to go. It was so funny, and these guys were super nice. wish i had it on video.
 
 ---
-leg: 11:34-19:20
 
 Just outside of boston i went to my first full service gas station since i was a kid in the back of the buick caprice classic. Gearing up for the weekend i listened to some phish, Runaway Jim is a great road trip song and it made me miss wicket.
 

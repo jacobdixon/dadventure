@@ -35,6 +35,9 @@
   #canvas{width:100%;height:100%}
   .leaflet-container{font-family:inherit;background:var(--paper-2)}
   .leaflet-control-attribution{font-size:9px;background:rgba(238,241,234,.8)}
+  .pinlabel{background:rgba(238,241,234,.92);border:0;border-radius:4px;box-shadow:0 1px 3px rgba(28,38,28,.25);color:var(--ink);font-family:"Fraunces",serif;font-weight:500;font-size:13px;padding:2px 7px;white-space:nowrap}
+  .pinlabel::before{display:none}
+  .gpinlabel{text-shadow:0 0 3px #EEF1EA,0 0 6px #EEF1EA,0 0 8px #EEF1EA}
   .maplabel{
     position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:5;pointer-events:none;
     background:var(--ink);color:var(--paper);font-family:"Fraunces",serif;font-weight:500;font-size:14px;
@@ -127,9 +130,9 @@ function parseContent(src){
     const meta=readMeta(lines);
     const nm=heading.match(/\d+/);
     const day={n:nm?+nm[0]:days.length+1, date:meta.date||'', place:meta.place||heading, cards:[]};
-    const first={text:lines.join('\n').trim(), photos:splitList(meta.photos), leg:meta.leg||''};
+    const first={text:lines.join('\n').trim(), photos:splitList(meta.photos), scene:meta.scene||''};
     day.cards.push(first);
-    chunks.slice(1).forEach(c=>{const ls=c.trim().split('\n'); const mm=readMeta(ls); day.cards.push({text:ls.join('\n').trim(), photos:splitList(mm.photos), leg:mm.leg||''});});
+    chunks.slice(1).forEach(c=>{const ls=c.trim().split('\n'); const mm=readMeta(ls); day.cards.push({text:ls.join('\n').trim(), photos:splitList(mm.photos), scene:mm.scene||''});});
     days.push(day);
   });
   return {fm,days};
@@ -147,40 +150,22 @@ function renderLetter(text){
 }
 const fmtDate=d=>{const [y,m,dd]=d.split('-').map(Number);return new Date(y,m-1,dd).toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});};
 
-/* ---------- legs: hand each card a stretch of the day's route ---------- */
-function describe(legs, mi){
-  const kinds=new Set(legs.map(L=>L.kind));
-  if(kinds.has('flight')) return `Flight, ${mi.toLocaleString()} mi`;
-  if(kinds.has('drive') && mi) return `Drive, ${mi.toLocaleString()} mi`;
-  return 'On foot and around town';
-}
-function legForRange(day, range){
-  const [a,b]=range.split(/\s*-\s*/);
-  const legs=day.legs.filter(L=>L.end>a && L.start<b);
-  const mi=legs.filter(L=>L.start>=a && L.end<=b).reduce((s,L)=>s+L.mi,0);
-  return {line:legs.flatMap(L=>L.line), label:describe(legs,mi)};
-}
-function assignLegs(dayContent, route){
-  const cards=dayContent.cards, legs=route?route.legs:[];
-  if(!legs.length) return cards.map(()=>null);
-  const N=cards.length, M=legs.length, groups=[];
-  if(N<=M){ let start=0; for(let i=0;i<N;i++){const size=Math.floor(M/N)+(i<M%N?1:0); groups.push(legs.slice(start,start+size)); start+=size;} }
-  else { for(let i=0;i<N;i++) groups.push([legs[Math.min(i,M-1)]]); }
-  return cards.map((c,i)=>{
-    if(c.leg) return legForRange(route,c.leg);
-    const g=groups[i]; return {line:g.flatMap(L=>L.line), label:describe(g,g.reduce((s,L)=>s+L.mi,0))};
+/* ---------- scenes: each card gets the matching scene of its day (in order) ---------- */
+function assignScenes(dayContent, route){
+  const scenes=route?route.scenes:[];
+  return dayContent.cards.map((c,i)=>{
+    if(!scenes.length) return null;
+    const idx = c.scene? Math.max(0,Math.min(scenes.length-1,(+c.scene)-1)) : Math.min(i,scenes.length-1);
+    return scenes[idx];
   });
 }
+const scenePoints=v=>[...(v.route||[]),...(v.flights||[]).flat(),...(v.pins||[]).map(p=>[p.lat,p.lng])];
 
 /* ---------- map: Google terrain if a key is set, otherwise Esri topo via Leaflet ---------- */
 const dist=(a,b)=>{const R=3959,t=Math.PI/180,dl=(b[0]-a[0])*t,dn=(b[1]-a[1])*t;const h=Math.sin(dl/2)**2+Math.cos(a[0]*t)*Math.cos(b[0]*t)*Math.sin(dn/2)**2;return 2*R*Math.asin(Math.sqrt(h));};
-function splitFlights(line){ // break the line where it jumps >80 mi (flights) so those legs draw dashed
-  const ground=[],air=[]; let seg=[];
-  for(let k=0;k<line.length;k++){ seg.push(line[k]); const nx=line[k+1]; if(nx && dist(line[k],nx)>80){ if(seg.length>1) ground.push(seg); air.push([line[k],nx]); seg=[]; } }
-  if(seg.length>1) ground.push(seg); return {ground,air};
-}
 const STYLE={ soft:{ground:{color:'#C8321F',weight:2,opacity:.35},air:{color:'#C8321F',weight:1.2,opacity:.3,dash:true}},
               hot:{casing:{color:'#FFFFFF',weight:5,opacity:.6},ground:{color:'#C8321F',weight:2.5,opacity:.85},air:{color:'#C8321F',weight:2,opacity:.85,dash:true}} };
+const PIN={fill:'#1C261C',stroke:'#FFFFFF',r:5};
 function padding(){
   const w=innerWidth;
   if(w>=1000) return {top:80,left:40,right:Math.round(w*0.5),bottom:40};
@@ -197,15 +182,16 @@ const leafletMap={
     addEventListener('resize',()=>this.map.invalidateSize());
   },
   line(pts,st,group){ return L.polyline(pts,{color:st.color,weight:st.weight,opacity:st.opacity,dashArray:st.dash?'2 8':null,lineCap:'round',lineJoin:'round',interactive:false}).addTo(group||this.map); },
-  draw(line,style,group){ const {ground,air}=splitFlights(line); if(style.casing) ground.forEach(s=>this.line(s,style.casing,group)); ground.forEach(s=>this.line(s,style.ground,group)); air.forEach(s=>this.line(s,style.air,group)); },
-  whole(routes){ routes.forEach(r=>this.draw(r.legs.flatMap(L=>L.line),STYLE.soft)); },
+  draw(v,style,group){ if(v.route&&v.route.length>1){ if(style.casing) this.line(v.route,style.casing,group); this.line(v.route,style.ground,group);} (v.flights||[]).forEach(f=>this.line(f,style.air,group)); },
+  pins(v,group){ (v.pins||[]).forEach(p=>L.circleMarker([p.lat,p.lng],{radius:PIN.r,color:PIN.stroke,weight:2,fillColor:PIN.fill,fillOpacity:1,interactive:false}).bindTooltip(p.name,{permanent:true,direction:'bottom',offset:[0,6],className:'pinlabel'}).addTo(group)); },
+  whole(routes){ routes.forEach(r=>r.scenes.forEach(v=>this.draw(v,STYLE.soft))); },
   focus(view,force){
     if(this.active){this.map.removeLayer(this.active);this.active=null;}
     let pts=ALL;
-    if(view){ this.active=L.layerGroup().addTo(this.map); this.draw(view.line,STYLE.hot,this.active); pts=view.line; }
+    if(view){ this.active=L.layerGroup().addTo(this.map); this.draw(view,STYLE.hot,this.active); this.pins(view,this.active); pts=scenePoints(view); }
     if(!pts.length) return;
-    const p=padding(), b=L.latLngBounds(pts).pad(pts.length<3?.5:.02);
-    const opts={paddingTopLeft:[p.left,p.top],paddingBottomRight:[p.right,p.bottom],maxZoom:15};
+    const p=padding(), b=L.latLngBounds(pts).pad(pts.length<3?.6:.08);
+    const opts={paddingTopLeft:[p.left,p.top],paddingBottomRight:[p.right,p.bottom],maxZoom:(view&&view.route&&view.route.length>1)?15:13};
     if(REDUCED || !this.map._loaded || force) this.map.fitBounds(b,{...opts,animate:false}); else this.map.flyToBounds(b,{...opts,duration:1.1,easeLinearity:.35});
   }
 };
@@ -222,17 +208,20 @@ const googleMap={
     if(st.dash) opts.icons=[{icon:{path:'M 0,-1 0,1',strokeOpacity:st.opacity,strokeWeight:st.weight,scale:1.5},offset:'0',repeat:'12px'}];
     const pl=new google.maps.Polyline(opts); if(bucket) bucket.push(pl); return pl;
   },
-  draw(line,style,bucket){ const {ground,air}=splitFlights(line); if(style.casing) ground.forEach(s=>this.line(s,style.casing,bucket)); ground.forEach(s=>this.line(s,style.ground,bucket)); air.forEach(s=>this.line(s,style.air,bucket)); },
-  whole(routes){ routes.forEach(r=>this.draw(r.legs.flatMap(L=>L.line),STYLE.soft)); },
+  draw(v,style,bucket){ if(v.route&&v.route.length>1){ if(style.casing) this.line(v.route,style.casing,bucket); this.line(v.route,style.ground,bucket);} (v.flights||[]).forEach(f=>this.line(f,style.air,bucket)); },
+  pins(v,bucket){ (v.pins||[]).forEach(p=>{ const mk=new google.maps.Marker({position:{lat:p.lat,lng:p.lng},map:this.map,clickable:false,
+      icon:{path:google.maps.SymbolPath.CIRCLE,scale:PIN.r,fillColor:PIN.fill,fillOpacity:1,strokeColor:PIN.stroke,strokeWeight:2,labelOrigin:new google.maps.Point(0,3.2)},
+      label:{text:p.name,color:'#1C261C',fontFamily:'Fraunces, serif',fontSize:'13px',fontWeight:'500',className:'gpinlabel'}}); bucket.push(mk); }); },
+  whole(routes){ routes.forEach(r=>r.scenes.forEach(v=>this.draw(v,STYLE.soft))); },
   focus(view){
-    this.active.forEach(pl=>pl.setMap(null)); this.active=[];
+    this.active.forEach(m=>m.setMap(null)); this.active=[];
     let pts=ALL;
-    if(view){ this.draw(view.line,STYLE.hot,this.active); pts=view.line; }
+    if(view){ this.draw(view,STYLE.hot,this.active); this.pins(view,this.active); pts=scenePoints(view); }
     if(!pts.length) return;
     const b=new google.maps.LatLngBounds(); pts.forEach(p=>b.extend({lat:p[0],lng:p[1]}));
-    if(pts.length<3){ const c=b.getCenter(); b.extend({lat:c.lat()+.03,lng:c.lng()+.03}); b.extend({lat:c.lat()-.03,lng:c.lng()-.03}); }
+    if(pts.length<3){ const c=b.getCenter(); const k=pts.length<2?.02:.6; const sp=b.toSpan(); b.extend({lat:c.lat()+Math.max(k*sp.lat(),.015),lng:c.lng()+Math.max(k*sp.lng(),.015)}); b.extend({lat:c.lat()-Math.max(k*sp.lat(),.015),lng:c.lng()-Math.max(k*sp.lng(),.015)}); }
     this.map.fitBounds(b,padding());
-    const z=this.map.getZoom(); if(z>15) this.map.setZoom(15);
+    const mz=(view&&view.route&&view.route.length>1)?15:13; google.maps.event.addListenerOnce(this.map,'idle',()=>{ if(this.map.getZoom()>mz) this.map.setZoom(mz); });
   }
 };
 async function initMap(){
@@ -242,7 +231,7 @@ async function initMap(){
   try{ await mapApi.init(); }catch(e){ mapApi=leafletMap; await mapApi.init(); }
 }
 let ROUTES=[];
-function drawWholeTrip(routes){ ROUTES=routes; routes.forEach(r=>ALL.push(...r.legs.flatMap(L=>L.line))); mapApi.whole(routes); }
+function drawWholeTrip(routes){ ROUTES=routes; routes.forEach(r=>r.scenes.forEach(v=>ALL.push(...scenePoints(v)))); mapApi.whole(routes); }
 function focus(view,force){ mapApi.focus(view,force); }
 
 /* ---------- build ---------- */
@@ -265,13 +254,13 @@ async function main(){
 
   let html='<div class="gap first"></div>'; let k=0;
   days.forEach(day=>{
-    const views=assignLegs(day, byDate[day.date]);
+    const views=assignScenes(day, byDate[day.date]);
     day.cards.forEach((c,ci)=>{
       const v=views[ci]; CARDS.push({day,card:c,view:v});
       const photos=c.photos.length?`<div class="photos">${c.photos.map(p=>`<figure><img src="${PHOTO_DIR+p}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'missing',textContent:'${esc(p)}'}))"></figure>`).join('')}</div>`:'';
       html+=`<article class="card" data-k="${k++}">
         <header><div class="n${ci?' cont':''}">${day.n}</div><div class="place">${esc(day.place)}</div>
-        <div class="meta"><span>${fmtDate(day.date)}</span>${v?`<span>${esc(v.label)}</span>`:''}</div></header>
+        <div class="meta"><span>${fmtDate(day.date)}</span>${v&&v.label?`<span>${esc(v.label)}</span>`:''}</div></header>
         ${photos}<div class="letter">${renderLetter(c.text)}</div></article><div class="gap"></div>`;
     });
   });
@@ -296,7 +285,7 @@ function onScroll(force){
   label.classList.toggle('on', scrollY>innerHeight*0.4);
   if(i===active && !force) return; active=i;
   if(i<0){ focus(null,force); label.innerHTML='The whole trip'; }
-  else { const c=CARDS[i]; focus(c.view,force); label.innerHTML=`Day ${c.day.n}${c.view?`<small>${esc(c.view.label)}</small>`:''}`; }
+  else { const c=CARDS[i]; focus(c.view,force); label.innerHTML=`Day ${c.day.n}${c.view&&c.view.label?`<small>${esc(c.view.label)}</small>`:''}`; }
 }
 main();
 </script>
