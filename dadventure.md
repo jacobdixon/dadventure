@@ -292,3 +292,45 @@ Slept like a rock.
 
 Miss you, love you!
 Dad
+
+## Day 15
+date: 2026-09-05
+place: Denver, CO
+photos: 636.jpg, 637.jpg, 628.jpg, 651.jpg, 633.jpg
+
+Woke up right on time today. Imagine my delight when I realized that Denver is the capital of Colorado. Bonus Capitol here i come. Modest structure, simple design. Coffee was less than a block away and delicious. Found the most amazing deli, with the most amazing breakfast sandwich. The contrast between Jordan's deli in Denver and Olneyville in Providence is hilariously extreme. My favorite contrast of the trip so far.
+
+I did the history museum, which has an effortless feeling of curation that makes it feel like a story instead of a collection of facts. I think it may rival MoHaI in Seattle as my fav.
+
+Met Tom and Greg at the diner with the 38-page menu and feasted. Retired to the hotel room. Got online and found baptismal records for my great grandmother and great grandfather at St. Malachy in Mayo, Quebec, Canada. I shared the details with my mom who is in contact with the archdiocese documentarian. Played a board game with Tom and Greg.
+
+---
+
+Phish show, night two. Huge jams, big energy, and one of my favorite live performances yet, 'Free' in set one. Wow!
+
+Smooth sailing to our car and hotel and to bed I went.
+
+Love you, miss you!
+Dad
+
+## Day 16
+date: 2026-09-06
+place: Denver, CO → home
+photos: PXL_20260906_170429424.jpg, PXL_20260906_190337270.MP.jpg, PXL_20260907_021505738.MP.jpg
+
+Woke up right on time this morning. Found a good coffee shop near the hotel and got a drink called the squirrel. I know, didn't we just learn this lesson? Two things. I was definitely going with iced coffee, because even at 9:30a it was 80 degrees in Denver. The squirrel is the house cold brew concentrated, over ice, with almond milk. Barista finished making it and yells, "squirrel!!!" and stares at me wide eyed for a few seconds. Me: "\<chuckle> Thanks, ordered the drink just for that moment" This was sort of true. I like my coffee black, and more often than not hot. This was like a coffee milkshake and I would have it again on a blistering hot morning.
+
+Then I went and found the Denver botanical gardens. Quite astonishing, the size and scope of this place. I don't know why I was expanding something smaller and quiet, because this was the exact opposite. There were like 4 different weddings and a funeral all happening. I spent three hours here just enjoying the space.
+
+Back towards hotel for a quick green chili burrito, which as far as I can tell is the extent of the local Denver specialty cuisine (no shade Denver). Then back to hotel for a quick refresh and show prep.
+
+---
+
+They say never miss a Sunday show at dicks. And it did not disappoint. Even after three straight shows I feel like I could go again and not get tired. So fun. And so great to experience it with friends Tom and Greg!
+
+---
+
+Finishing this dispatch up from the airport. On my way home. I miss you so much! Can't wait to see you guys!!
+
+Love,
+Dad
