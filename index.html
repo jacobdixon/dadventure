@@ -37,8 +37,6 @@
   .leaflet-layer{transition:opacity .9s ease}
   .ovbase{filter:saturate(.55) sepia(.18) brightness(1.06)}
   .leaflet-control-attribution{font-size:9px;background:rgba(238,241,234,.8)}
-  .pinlabel{background:rgba(238,241,234,.92);border:0;border-radius:4px;box-shadow:0 1px 3px rgba(28,38,28,.25);color:var(--ink);font-family:"Fraunces",serif;font-weight:500;font-size:13px;padding:2px 7px;white-space:nowrap}
-  .pinlabel::before{display:none}
   .gpinlabel{text-shadow:0 0 3px #EEF1EA,0 0 6px #EEF1EA,0 0 8px #EEF1EA}
   .maplabel{
     position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:5;pointer-events:none;
@@ -121,7 +119,7 @@
 <script>
 const CONTENT_URL='dadventure.md', ROUTE_URL='timeline.json', PHOTO_DIR='photos/';
 const GOOGLE_MAPS_KEY='AIzaSyCWrlk6_XEtv_kE-oOaaOiYi5SxYJb50S8';   // paste your key here to use Google's terrain map; leave empty for Esri World Topo
-const GOOGLE_MAP_ID='';   // optional: a vector Map ID from the Google Cloud console gives GPU-smooth zooming (styling then comes from the console)
+const GOOGLE_MAP_ID='33dbae3225d3fdb37f6cdee9';   // optional: a vector Map ID from the Google Cloud console gives GPU-smooth zooming (styling then comes from the console)
 const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /* ---------- the whole-trip overview (first map screen) ----------
@@ -295,7 +293,7 @@ const leafletMap={
   },
   line(pts,st,group){ return L.polyline(pts,{color:st.color,weight:st.weight,opacity:st.opacity,dashArray:st.dash?(st.dashArray||'2 8'):null,lineCap:'round',lineJoin:'round',smoothFactor:st.dashArray?0:1,interactive:false}).addTo(group||this.map); },
   draw(v,style,group){ if(v.route&&v.route.length>1){ if(style.casing) this.line(v.route,style.casing,group); this.line(v.route,style.ground,group);} (v.flights||[]).forEach(f=>this.line(f,style.air,group)); },
-  pins(v,group){ (v.pins||[]).forEach(p=>L.circleMarker([p.lat,p.lng],{radius:PIN.r,color:PIN.stroke,weight:2,fillColor:PIN.fill,fillOpacity:1,interactive:false}).bindTooltip(p.name,{permanent:true,direction:'bottom',offset:[0,6],className:'pinlabel'}).addTo(group)); },
+  pins(v,group){ (v.pins||[]).forEach(p=>L.circleMarker([p.lat,p.lng],{radius:PIN.r,color:PIN.stroke,weight:2,fillColor:PIN.fill,fillOpacity:1,interactive:false}).addTo(group)); },   // stops are dots only; the letters name them
   whole(routes){
     this.context=L.layerGroup(); routes.forEach(r=>r.scenes.forEach(v=>this.draw(v,STYLE.soft,this.context)));
     this.overview=L.layerGroup(); this.cities=L.layerGroup().addTo(this.overview);
@@ -336,8 +334,7 @@ const googleMap={
   },
   draw(v,style,bucket){ if(v.route&&v.route.length>1){ if(style.casing) this.line(v.route,style.casing,bucket); this.line(v.route,style.ground,bucket);} (v.flights||[]).forEach(f=>this.line(f,style.air,bucket)); },
   pins(v,bucket){ (v.pins||[]).forEach(p=>{ const mk=new google.maps.Marker({position:{lat:p.lat,lng:p.lng},map:this.map,clickable:false,
-      icon:{path:google.maps.SymbolPath.CIRCLE,scale:PIN.r,fillColor:PIN.fill,fillOpacity:1,strokeColor:PIN.stroke,strokeWeight:2,labelOrigin:new google.maps.Point(0,3.2)},
-      label:{text:p.name,color:'#1C261C',fontFamily:'Fraunces, serif',fontSize:'13px',fontWeight:'500',className:'gpinlabel'}}); bucket.push(mk); }); },
+      icon:{path:google.maps.SymbolPath.CIRCLE,scale:PIN.r,fillColor:PIN.fill,fillOpacity:1,strokeColor:PIN.stroke,strokeWeight:2}}); bucket.push(mk); }); },   // stops are dots only; the letters name them
   whole(routes){
     this.context=[]; routes.forEach(r=>r.scenes.forEach(v=>this.draw(v,STYLE.soft,this.context)));
     this.overview=[]; this.cities=[];
@@ -444,12 +441,11 @@ function render(){
   if(i>=0){ const g=SEG[i]; let t=Math.max(0,Math.min(1,(y-g.start)/(g.end-g.start))); if(REDUCED) t=t<.5?0:1;
     const e=t*t*(3-2*t); cam=lerpCam(i?CAMS[i-1]:OVCAM, CAMS[i], e); s=t<.5?i-1:i; }
   const label=document.getElementById('maplabel');
-  label.classList.toggle('on', scrollY>innerHeight*0.4);
+  label.classList.toggle('on', s<0 && scrollY>innerHeight*0.4);   // the pill (with the drove/flew key) belongs to the whole-trip screen only
   if(s!==state){ state=s;
     const view=s<0?null:CARDS[s].view; mapApi.scene(view);
     if(s<0){ mapApi.labelCities(placeLabels(p=>camXY(OVCAM,p.lat,p.lng)));
       label.innerHTML=`The whole trip<span class="key"><svg width="22" height="6"><line x1="2" y1="3" x2="20" y2="3" stroke="#E4A398" stroke-width="3.5" stroke-linecap="round"/></svg><i>drove</i><svg width="24" height="6"><line x1="2" y1="3" x2="22" y2="3" stroke="#E4A398" stroke-width="3" stroke-linecap="round" stroke-dasharray="4 6"/></svg><i>flew</i></span>`; }
-    else { const c=CARDS[s]; label.innerHTML=`Day ${c.day.n}${c.view&&c.view.label?`<small>${esc(c.view.label)}</small>`:''}`; }
   }
   mapApi.camera(cam);
 }
