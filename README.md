@@ -35,7 +35,8 @@ Photos listed on the day go on its first card; add a `photos:` line after a `---
 ## Changing what the map shows
 Each scene in `timeline.json` has `label`, `route` (list of [lat, lng]), `flights` (list of
 [[lat,lng],[lat,lng]] pairs, drawn dashed), and `pins` (list of `{name, lat, lng}`). Add a pin by
-adding to that list; remove one by deleting it. A scene with only pins zooms to the pins.
+adding to that list; remove one by deleting it. A scene with only pins zooms to the pins. Add `"zoom": 15` to a scene to set its zoom level yourself
+(higher is closer; the cabin days use 15 so the lake's name shows on the Google map).
 
 ## Adding a day
 Copy any block, paste it at the bottom, change the day number, date, and text. If the day exists in `timeline.json` the map will follow; if not, the letter still shows, just without a map scene.

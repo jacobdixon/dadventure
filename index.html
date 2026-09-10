@@ -260,7 +260,8 @@ function cameraFor(view){
   const pf=overview?.02:pts.length<3?.6:.08, px=(x1-x0)*pf, py=(y1-y0)*pf; x0-=px; x1+=px; y0-=py; y1+=py;
   const maxZ=overview?6:(view.route&&view.route.length>1)?15:13;
   const aw=Math.max(60,W-P.left-P.right), ah=Math.max(60,H-P.top-P.bottom);
-  const z=Math.max(2,Math.min(maxZ,Math.log2(Math.min(aw/((x1-x0)*TILE),ah/((y1-y0)*TILE))))), ws=TILE*2**z;
+  // a scene can pin its own zoom in timeline.json ("zoom": 15), e.g. close enough for the lake's name to show
+  const z=view&&view.zoom?+view.zoom:Math.max(2,Math.min(maxZ,Math.log2(Math.min(aw/((x1-x0)*TILE),ah/((y1-y0)*TILE))))), ws=TILE*2**z;
   return {x:(x0+x1)/2-(P.left-P.right)/2/ws, y:(y0+y1)/2-(P.top-P.bottom)/2/ws, z};
 }
 const camXY=(cam,lat,lng)=>{const [mx,my]=merc([lat,lng]), ws=TILE*2**cam.z; return {x:innerWidth/2+(mx-cam.x)*ws, y:innerHeight/2+(my-cam.y)*ws};};
