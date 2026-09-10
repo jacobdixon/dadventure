@@ -34,6 +34,8 @@
   #map{position:fixed;inset:0;z-index:0;background:var(--paper-2)}
   #canvas{width:100%;height:100%}
   .leaflet-container{font-family:inherit;background:var(--paper-2)}
+  .leaflet-layer{transition:opacity .9s ease}
+  .ovbase{filter:saturate(.55) sepia(.18) brightness(1.06)}
   .leaflet-control-attribution{font-size:9px;background:rgba(238,241,234,.8)}
   .pinlabel{background:rgba(238,241,234,.92);border:0;border-radius:4px;box-shadow:0 1px 3px rgba(28,38,28,.25);color:var(--ink);font-family:"Fraunces",serif;font-weight:500;font-size:13px;padding:2px 7px;white-space:nowrap}
   .pinlabel::before{display:none}
@@ -46,6 +48,12 @@
   }
   .maplabel.on{opacity:1}
   .maplabel small{font-family:"Newsreader",serif;font-weight:400;opacity:.8;margin-left:8px}
+  .maplabel .key{display:inline-flex;align-items:center;gap:6px;margin-left:12px;font-family:"Newsreader",serif;font-weight:400;font-size:13px;opacity:.9}
+  .maplabel .key svg{display:block}
+  .maplabel .key i{font-style:normal;margin-right:6px}
+  .citylabel{background:none;border:0;box-shadow:none;padding:0;color:var(--ink);font-family:"Fraunces",serif;font-weight:600;font-size:13px;letter-spacing:.01em;white-space:nowrap;
+    text-shadow:0 0 2px #fff,0 0 4px #fff,0 0 6px #fff,0 0 8px #fff}
+  .citylabel::before{display:none}
 
   /* ---------- opaque page ends ---------- */
   .hero,.end{position:relative;z-index:2;background:var(--paper)}
@@ -115,6 +123,24 @@ const CONTENT_URL='dadventure.md', ROUTE_URL='timeline.json', PHOTO_DIR='photos/
 const GOOGLE_MAPS_KEY='AIzaSyCWrlk6_XEtv_kE-oOaaOiYi5SxYJb50S8';   // paste your key here to use Google's terrain map; leave empty for Esri World Topo
 const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+/* ---------- the whole-trip overview (first map screen) ----------
+   Anchor places labelled on the overview, in priority order: when labels would collide
+   on a small screen, the ones further down the list are dropped. */
+const OVERVIEW_PLACES=[
+  {name:'Seattle',lat:47.6062,lng:-122.3321,dir:'top'},
+  {name:'Boston',lat:42.3601,lng:-71.0589},
+  {name:'Denver',lat:39.7392,lng:-104.9903},
+  {name:'Montréal',lat:45.5019,lng:-73.5674,dir:'top'},
+  {name:'Chicago',lat:41.8781,lng:-87.6298},
+  {name:'Milwaukee',lat:43.0389,lng:-87.9065},
+  {name:'Lac du Flambeau',lat:45.9697,lng:-89.8915,dir:'top'},
+  {name:'Portland',lat:43.6591,lng:-70.2568,dir:'right'},
+  {name:'Burlington',lat:44.4759,lng:-73.2121,dir:'left'},
+];
+const OVERVIEW_MIN_DRIVE_MI=20;   // drives smaller than this (city wandering) are left off the overview
+// the overview sits on a quieter, label-free basemap so the route and the place names above carry the screen
+const OVERVIEW_TILES='https://server.arcgisonline.com/ArcGIS/rest/services/World_Shaded_Relief/MapServer/tile/{z}/{y}/{x}';
+
 /* ---------- content parser: days -> cards ---------- */
 function parseContent(src){
   src=src.replace(/\r\n/g,'\n');
@@ -166,8 +192,59 @@ const dist=(a,b)=>{const R=3959,t=Math.PI/180,dl=(b[0]-a[0])*t,dn=(b[1]-a[1])*t;
 const STYLE={ soft:{ground:{color:'#C8321F',weight:2,opacity:.35},air:{color:'#C8321F',weight:1.2,opacity:.3,dash:true}},
               hot:{casing:{color:'#FFFFFF',weight:5,opacity:.6},ground:{color:'#C8321F',weight:2.5,opacity:.85},air:{color:'#C8321F',weight:2,opacity:.85,dash:true}} };
 const PIN={fill:'#1C261C',stroke:'#FFFFFF',r:5};
-function padding(){
+const OV_STYLE={ casing:{color:'#FFFFFF',weight:8,opacity:.85}, ground:{color:'#C8321F',weight:4,opacity:1},
+                 air:{color:'#C8321F',weight:3.5,opacity:.95,dash:true,dashArray:'7 10',gap:17} };
+
+/* ---------- geometry for the overview: simplify + smooth drives, arc the flights ---------- */
+function rdp(pts,eps){
+  if(pts.length<3) return pts.slice();
+  const [a,b]=[pts[0],pts.at(-1)]; let md=0,mi=0;
+  for(let i=1;i<pts.length-1;i++){ const d=segDist(pts[i],a,b); if(d>md){md=d;mi=i;} }
+  if(md<=eps) return [a,b];
+  return [...rdp(pts.slice(0,mi+1),eps).slice(0,-1),...rdp(pts.slice(mi),eps)];
+}
+function segDist(p,a,b){ const k=Math.cos(a[0]*Math.PI/180); const [px,py,ax,ay,bx,by]=[p[1]*k,p[0],a[1]*k,a[0],b[1]*k,b[0]];
+  const dx=bx-ax,dy=by-ay,L=dx*dx+dy*dy; let t=L?((px-ax)*dx+(py-ay)*dy)/L:0; t=Math.max(0,Math.min(1,t)); return Math.hypot(px-ax-t*dx,py-ay-t*dy); }
+function chaikin(pts,n){ for(let r=0;r<n;r++){ const o=[pts[0]]; for(let i=0;i<pts.length-1;i++){ const [a,b]=[pts[i],pts[i+1]];
+  o.push([a[0]*.75+b[0]*.25,a[1]*.75+b[1]*.25],[a[0]*.25+b[0]*.75,a[1]*.25+b[1]*.75]); } o.push(pts.at(-1)); pts=o; } return pts; }
+function arc(a,b,n=48){
+  // gentle curve that bulges north, like a great-circle route looks on a flat map
+  const k=Math.cos((a[0]+b[0])/2*Math.PI/180), ax=a[1]*k, bx=b[1]*k, mx=(ax+bx)/2, my=(a[0]+b[0])/2;
+  // eastbound legs bow north, westbound legs bow south, so out-and-back flights read as one loop
+  let nx=-(b[0]-a[0]), ny=bx-ax; if((ny<0)!==(bx<ax)){nx=-nx;ny=-ny;}
+  const len=Math.hypot(nx,ny)||1, h=Math.hypot(bx-ax,b[0]-a[0])*.16, cx=mx+nx/len*h, cy=my+ny/len*h, out=[];
+  for(let i=0;i<=n;i++){ const t=i/n, u=1-t; out.push([u*u*a[0]+2*u*t*cy+t*t*b[0], (u*u*ax+2*u*t*cx+t*t*bx)/k]); }
+  return out;
+}
+function buildOverview(routes){
+  const drives=[], flights=[];
+  routes.forEach(r=>r.scenes.forEach(v=>{
+    const rt=v.route||[];
+    if(rt.length>1){ const la=rt.map(p=>p[0]), ln=rt.map(p=>p[1]);
+      if(dist([Math.min(...la),Math.min(...ln)],[Math.max(...la),Math.max(...ln)])>=OVERVIEW_MIN_DRIVE_MI) drives.push(chaikin(rdp(rt,.012),3)); }
+    (v.flights||[]).forEach(f=>flights.push(arc(f[0],f[1])));
+  }));
+  return {drives,flights};
+}
+// drop labels that would overlap once the map is fitted (xy: place -> screen point)
+function placeLabels(xy){
+  const kept=[], boxes=[], W=innerWidth, H=innerHeight;
+  const hits=(a)=>boxes.some(o=>!(a.r<o.l||a.l>o.r||a.b<o.t||a.t>o.b));
+  OVERVIEW_PLACES.forEach(p=>{ const q=xy(p), w=p.name.length*7.6+10, h=18, dot={l:q.x-6,r:q.x+6,t:q.y-6,b:q.y+6};
+    if(q.x<0||q.x>W||q.y<0||q.y>H||hits(dot)) return;
+    // try the preferred side first, then the others, keeping the label on screen and clear of earlier ones
+    for(const d of [...new Set([p.dir||'bottom','bottom','top','right','left'])]){
+      const o={bottom:[-w/2,6],top:[-w/2,-6-h],left:[-w-8,-h/2],right:[8,-h/2]}[d];
+      const bx={l:q.x+o[0],r:q.x+o[0]+w,t:q.y+o[1],b:q.y+o[1]+h};
+      if(bx.l<4||bx.r>W-4||hits(bx)) continue;
+      kept.push({...p,dir:d}); boxes.push(bx,dot); return;
+    }
+  });
+  return kept;
+}
+function padding(overview){
   const w=innerWidth;
+  if(overview) return w>=1000?{top:90,left:70,right:70,bottom:60}:{top:76,left:18,right:18,bottom:40};
   if(w>=1000) return {top:80,left:40,right:Math.round(w*0.5),bottom:40};
   return {top:84,left:28,right:28,bottom:Math.round(innerHeight*0.25)};
 }
@@ -178,20 +255,42 @@ const leafletMap={
   active:null,
   init(){
     this.map=L.map('canvas',{zoomControl:false,dragging:false,touchZoom:false,scrollWheelZoom:false,doubleClickZoom:false,boxZoom:false,keyboard:false,tap:false,zoomSnap:.1});
-    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'Tiles &copy; Esri &mdash; Esri, HERE, Garmin, USGS, NGA, and others'}).addTo(this.map);
+    this.base=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'Tiles &copy; Esri &mdash; Esri, HERE, Garmin, USGS, NGA, and others'}).addTo(this.map);
+    this.map.createPane('cities').style.zIndex=450;
+    this.ovBase=L.tileLayer(OVERVIEW_TILES,{maxZoom:13,maxNativeZoom:13,className:'ovbase',opacity:0}).addTo(this.map);
     addEventListener('resize',()=>this.map.invalidateSize());
   },
-  line(pts,st,group){ return L.polyline(pts,{color:st.color,weight:st.weight,opacity:st.opacity,dashArray:st.dash?'2 8':null,lineCap:'round',lineJoin:'round',interactive:false}).addTo(group||this.map); },
+  line(pts,st,group){ return L.polyline(pts,{color:st.color,weight:st.weight,opacity:st.opacity,dashArray:st.dash?(st.dashArray||'2 8'):null,lineCap:'round',lineJoin:'round',smoothFactor:st.dashArray?0:1,interactive:false}).addTo(group||this.map); },
   draw(v,style,group){ if(v.route&&v.route.length>1){ if(style.casing) this.line(v.route,style.casing,group); this.line(v.route,style.ground,group);} (v.flights||[]).forEach(f=>this.line(f,style.air,group)); },
   pins(v,group){ (v.pins||[]).forEach(p=>L.circleMarker([p.lat,p.lng],{radius:PIN.r,color:PIN.stroke,weight:2,fillColor:PIN.fill,fillOpacity:1,interactive:false}).bindTooltip(p.name,{permanent:true,direction:'bottom',offset:[0,6],className:'pinlabel'}).addTo(group)); },
-  whole(routes){ routes.forEach(r=>r.scenes.forEach(v=>this.draw(v,STYLE.soft))); },
+  whole(routes){
+    this.context=L.layerGroup(); routes.forEach(r=>r.scenes.forEach(v=>this.draw(v,STYLE.soft,this.context)));
+    this.overview=L.layerGroup(); this.cities=L.layerGroup().addTo(this.overview);
+    const ov=buildOverview(routes);
+    ov.drives.forEach(d=>this.line(d,OV_STYLE.casing,this.overview));
+    ov.flights.forEach(f=>this.line(f,OV_STYLE.air,this.overview));
+    ov.drives.forEach(d=>this.line(d,OV_STYLE.ground,this.overview));
+  },
+  showOverview(on){
+    if(on){ this.map.removeLayer(this.context); this.overview.addTo(this.map); }
+    else { this.map.removeLayer(this.overview); this.context.addTo(this.map); }
+    this.ovBase.setOpacity(on?1:0);
+  },
+  labelCities(){
+    this.cities.clearLayers();
+    placeLabels(p=>this.map.latLngToContainerPoint([p.lat,p.lng])).forEach(p=>
+      L.circleMarker([p.lat,p.lng],{pane:'cities',radius:4,color:'#FFFFFF',weight:2,fillColor:PIN.fill,fillOpacity:1,interactive:false})
+       .bindTooltip(p.name,{permanent:true,direction:p.dir||'bottom',offset:{bottom:[0,4],top:[0,-4],left:[-4,0],right:[4,0]}[p.dir||'bottom'],className:'citylabel'}).addTo(this.cities));
+  },
   focus(view,force){
     if(this.active){this.map.removeLayer(this.active);this.active=null;}
+    this.showOverview(!view);
     let pts=ALL;
     if(view){ this.active=L.layerGroup().addTo(this.map); this.draw(view,STYLE.hot,this.active); this.pins(view,this.active); pts=scenePoints(view); }
     if(!pts.length) return;
-    const p=padding(), b=L.latLngBounds(pts).pad(pts.length<3?.6:.08);
+    const p=padding(!view), b=L.latLngBounds(pts).pad(!view?.02:pts.length<3?.6:.08);
     const opts={paddingTopLeft:[p.left,p.top],paddingBottomRight:[p.right,p.bottom],maxZoom:(view&&view.route&&view.route.length>1)?15:13};
+    if(!view){ opts.maxZoom=6; if(this._lbl) this.map.off('moveend',this._lbl); this._lbl=()=>this.labelCities(); this.map.once('moveend',this._lbl); }
     if(REDUCED || !this.map._loaded || force) this.map.fitBounds(b,{...opts,animate:false}); else this.map.flyToBounds(b,{...opts,duration:1.1,easeLinearity:.35});
   }
 };
@@ -205,29 +304,48 @@ const googleMap={
   },
   line(pts,st,bucket){
     const opts={path:pts.map(p=>({lat:p[0],lng:p[1]})),strokeColor:st.color,strokeOpacity:st.dash?0:st.opacity,strokeWeight:st.weight,clickable:false,map:this.map};
-    if(st.dash) opts.icons=[{icon:{path:'M 0,-1 0,1',strokeOpacity:st.opacity,strokeWeight:st.weight,scale:1.5},offset:'0',repeat:'12px'}];
+    if(st.dash) opts.icons=[{icon:{path:'M 0,-1 0,1',strokeOpacity:st.opacity,strokeWeight:st.weight,scale:st.gap?3:1.5},offset:'0',repeat:(st.gap||12)+'px'}];
     const pl=new google.maps.Polyline(opts); if(bucket) bucket.push(pl); return pl;
   },
   draw(v,style,bucket){ if(v.route&&v.route.length>1){ if(style.casing) this.line(v.route,style.casing,bucket); this.line(v.route,style.ground,bucket);} (v.flights||[]).forEach(f=>this.line(f,style.air,bucket)); },
   pins(v,bucket){ (v.pins||[]).forEach(p=>{ const mk=new google.maps.Marker({position:{lat:p.lat,lng:p.lng},map:this.map,clickable:false,
       icon:{path:google.maps.SymbolPath.CIRCLE,scale:PIN.r,fillColor:PIN.fill,fillOpacity:1,strokeColor:PIN.stroke,strokeWeight:2,labelOrigin:new google.maps.Point(0,3.2)},
       label:{text:p.name,color:'#1C261C',fontFamily:'Fraunces, serif',fontSize:'13px',fontWeight:'500',className:'gpinlabel'}}); bucket.push(mk); }); },
-  whole(routes){ routes.forEach(r=>r.scenes.forEach(v=>this.draw(v,STYLE.soft))); },
+  whole(routes){
+    this.context=[]; routes.forEach(r=>r.scenes.forEach(v=>this.draw(v,STYLE.soft,this.context)));
+    this.overview=[]; this.cities=[];
+    const ov=buildOverview(routes);
+    ov.drives.forEach(d=>this.line(d,OV_STYLE.casing,this.overview));
+    ov.flights.forEach(f=>this.line(f,OV_STYLE.air,this.overview));
+    ov.drives.forEach(d=>this.line(d,OV_STYLE.ground,this.overview));
+  },
+  showOverview(on){ this.map.setOptions({styles:on?[{elementType:'labels',stylers:[{visibility:'off'}]},{featureType:'administrative.country',elementType:'labels',stylers:[{visibility:'on'}]}]:null});
+    this.context.forEach(m=>m.setMap(on?null:this.map)); [...this.overview,...this.cities].forEach(m=>m.setMap(on?this.map:null)); },
+  labelCities(){
+    this.cities.forEach(m=>m.setMap(null)); this.cities=[];
+    const proj=this.map.getProjection(), bnd=this.map.getBounds(); if(!proj||!bnd) return;
+    const sc=2**this.map.getZoom(), nw=proj.fromLatLngToPoint({lat:bnd.getNorthEast().lat(),lng:bnd.getSouthWest().lng()});
+    const xy=p=>{const w=proj.fromLatLngToPoint(p); return {x:(w.x-nw.x)*sc,y:(w.y-nw.y)*sc};};
+    placeLabels(xy).forEach(p=>this.cities.push(new google.maps.Marker({position:{lat:p.lat,lng:p.lng},map:this.map,clickable:false,
+      icon:{path:google.maps.SymbolPath.CIRCLE,scale:4,fillColor:PIN.fill,fillOpacity:1,strokeColor:'#FFFFFF',strokeWeight:2,labelOrigin:(()=>{const w=p.name.length*7.6/8+2.5; return new google.maps.Point(...({bottom:[0,3.4],top:[0,-2.6],left:[-w,.4],right:[w,.4]}[p.dir||'bottom']));})()},
+      label:{text:p.name,color:'#1C261C',fontFamily:'Fraunces, serif',fontSize:'13px',fontWeight:'600',className:'gpinlabel'}})));
+  },
   focus(view){
     this.active.forEach(m=>m.setMap(null)); this.active=[];
+    this.showOverview(!view);
     let pts=ALL;
     if(view){ this.draw(view,STYLE.hot,this.active); this.pins(view,this.active); pts=scenePoints(view); }
     if(!pts.length) return;
     const b=new google.maps.LatLngBounds(); pts.forEach(p=>b.extend({lat:p[0],lng:p[1]}));
     if(pts.length<3){ const c=b.getCenter(); const k=pts.length<2?.02:.6; const sp=b.toSpan(); b.extend({lat:c.lat()+Math.max(k*sp.lat(),.015),lng:c.lng()+Math.max(k*sp.lng(),.015)}); b.extend({lat:c.lat()-Math.max(k*sp.lat(),.015),lng:c.lng()-Math.max(k*sp.lng(),.015)}); }
-    this.map.fitBounds(b,padding());
-    const mz=(view&&view.route&&view.route.length>1)?15:13; google.maps.event.addListenerOnce(this.map,'idle',()=>{ if(this.map.getZoom()>mz) this.map.setZoom(mz); });
+    this.map.fitBounds(b,padding(!view));
+    const mz=!view?6:(view.route&&view.route.length>1)?15:13; google.maps.event.addListenerOnce(this.map,'idle',()=>{ if(this.map.getZoom()>mz) this.map.setZoom(mz); if(!view) this.labelCities(); });
   }
 };
 async function initMap(){
   mapApi = GOOGLE_MAPS_KEY ? googleMap : leafletMap;
   // If Google rejects the key (not enabled, wrong referrer, billing off) fall back to Esri so the page still works
-  window.gm_authFailure=()=>{ console.warn('Google Maps rejected the key; using Esri World Topo instead.'); const c=document.getElementById('canvas'); c.replaceWith(Object.assign(document.createElement('div'),{id:'canvas'})); mapApi=leafletMap; leafletMap.init(); mapApi.whole(ROUTES); onScroll(true); };
+  window.gm_authFailure=()=>{ console.warn('Google Maps rejected the key; using Esri World Topo instead.'); const c=document.getElementById('canvas'); c.replaceWith(Object.assign(document.createElement('div'),{id:'canvas'})); mapApi=leafletMap; leafletMap.init(); mapApi.whole(ROUTES); active=null; onScroll(true); };
   try{ await mapApi.init(); }catch(e){ mapApi=leafletMap; await mapApi.init(); }
 }
 let ROUTES=[];
@@ -284,7 +402,7 @@ function onScroll(force){
   const label=document.getElementById('maplabel');
   label.classList.toggle('on', scrollY>innerHeight*0.4);
   if(i===active && !force) return; active=i;
-  if(i<0){ focus(null,force); label.innerHTML='The whole trip'; }
+  if(i<0){ focus(null,force); label.innerHTML=`The whole trip<span class="key"><svg width="22" height="6"><line x1="2" y1="3" x2="20" y2="3" stroke="#E4A398" stroke-width="3.5" stroke-linecap="round"/></svg><i>drove</i><svg width="24" height="6"><line x1="2" y1="3" x2="22" y2="3" stroke="#E4A398" stroke-width="3" stroke-linecap="round" stroke-dasharray="4 6"/></svg><i>flew</i></span>`; }
   else { const c=CARDS[i]; focus(c.view,force); label.innerHTML=`Day ${c.day.n}${c.view&&c.view.label?`<small>${esc(c.view.label)}</small>`:''}`; }
 }
 main();
