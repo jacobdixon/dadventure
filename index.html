@@ -70,7 +70,7 @@
   /* ---------- scrolling story ---------- */
   .story{position:relative;z-index:1}
   .gap{height:var(--gap)}
-  .gap.first{height:100vh}
+  .gap.first{height:200vh}
   .card{
     position:relative;max-width:var(--card-w);margin:0 12px;min-height:calc(100vh - var(--peek));
     background:var(--paper);border-radius:14px;padding:26px 22px 30px;
@@ -127,13 +127,13 @@ const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
    Anchor places labelled on the overview, in priority order: when labels would collide
    on a small screen, the ones further down the list are dropped. */
 const OVERVIEW_PLACES=[
-  {name:'Seattle',lat:47.6062,lng:-122.3321,dir:'top'},
+  {name:'Seattle',lat:47.6062,lng:-122.3321,dir:['left','top']},
   {name:'Boston',lat:42.3601,lng:-71.0589},
   {name:'Denver',lat:39.7392,lng:-104.9903},
   {name:'Montréal',lat:45.5019,lng:-73.5674,dir:'top'},
   {name:'Chicago',lat:41.8781,lng:-87.6298},
   {name:'Milwaukee',lat:43.0389,lng:-87.9065},
-  {name:'Lac du Flambeau',lat:45.9697,lng:-89.8915,dir:'top'},
+  {name:'Minocqua',lat:45.8711,lng:-89.7110,dir:'top'},
   {name:'Portland',lat:43.6591,lng:-70.2568,dir:'right'},
   {name:'Burlington',lat:44.4759,lng:-73.2121,dir:'left'},
 ];
@@ -226,18 +226,20 @@ function buildOverview(routes){
   }));
   return {drives,flights};
 }
-// drop labels that would overlap once the map is fitted (xy: place -> screen point)
+// place overview labels so they stay on screen and clear of each other (xy: place -> screen point)
 function placeLabels(xy){
   const kept=[], boxes=[], W=innerWidth, H=innerHeight;
-  const hits=(a)=>boxes.some(o=>!(a.r<o.l||a.l>o.r||a.b<o.t||a.t>o.b));
+  const hits=a=>boxes.some(o=>!(a.r<o.l||a.l>o.r||a.b<o.t||a.t>o.b));
   OVERVIEW_PLACES.forEach(p=>{ const q=xy(p), w=p.name.length*7.6+10, h=18, dot={l:q.x-6,r:q.x+6,t:q.y-6,b:q.y+6};
     if(q.x<0||q.x>W||q.y<0||q.y>H||hits(dot)) return;
-    // try the preferred side first, then the others, keeping the label on screen and clear of earlier ones
-    for(const d of [...new Set([p.dir||'bottom','bottom','top','right','left'])]){
+    // preferred side(s) first, then the rest; above/below labels may slide sideways to stay on screen
+    const prefs=[].concat(p.dir||[]);
+    for(const d of [...new Set([...prefs,'bottom','top','right','left'])]){
       const o={bottom:[-w/2,6],top:[-w/2,-6-h],left:[-w-8,-h/2],right:[8,-h/2]}[d];
-      const bx={l:q.x+o[0],r:q.x+o[0]+w,t:q.y+o[1],b:q.y+o[1]+h};
+      let dx=0; if(d==='top'||d==='bottom'){ const l=q.x+o[0]; if(l<4) dx=4-l; if(l+w>W-4) dx=W-4-w-l; }
+      const bx={l:q.x+o[0]+dx,r:q.x+o[0]+dx+w,t:q.y+o[1],b:q.y+o[1]+h};
       if(bx.l<4||bx.r>W-4||hits(bx)) continue;
-      kept.push({...p,dir:d}); boxes.push(bx,dot); return;
+      kept.push({...p,dir:d,dx}); boxes.push(bx,dot); return;
     }
   });
   return kept;
@@ -248,16 +250,46 @@ function padding(overview){
   if(w>=1000) return {top:80,left:40,right:Math.round(w*0.5),bottom:40};
   return {top:84,left:28,right:28,bottom:Math.round(innerHeight*0.25)};
 }
+
+/* ---------- camera: we fit views ourselves so the scroll position can scrub between them ---------- */
+const TILE=256;
+const merc=([lat,lng])=>{const s=Math.sin(Math.max(-85,Math.min(85,lat))*Math.PI/180); return [(lng+180)/360,.5-Math.log((1+s)/(1-s))/(4*Math.PI)];};
+const unmerc=([x,y])=>[Math.atan(Math.sinh(Math.PI*(1-2*y)))*180/Math.PI, x*360-180];
+function cameraFor(view){
+  const overview=!view, pts=overview?ALL:scenePoints(view); if(!pts.length) return null;
+  const P=padding(overview), W=innerWidth, H=innerHeight, m=pts.map(merc);
+  let x0=Math.min(...m.map(p=>p[0])), x1=Math.max(...m.map(p=>p[0])), y0=Math.min(...m.map(p=>p[1])), y1=Math.max(...m.map(p=>p[1]));
+  const pf=overview?.02:pts.length<3?.6:.08, px=(x1-x0)*pf, py=(y1-y0)*pf; x0-=px; x1+=px; y0-=py; y1+=py;
+  const maxZ=overview?6:(view.route&&view.route.length>1)?15:13;
+  const aw=Math.max(60,W-P.left-P.right), ah=Math.max(60,H-P.top-P.bottom);
+  const z=Math.max(2,Math.min(maxZ,Math.log2(Math.min(aw/((x1-x0)*TILE),ah/((y1-y0)*TILE))))), ws=TILE*2**z;
+  return {x:(x0+x1)/2-(P.left-P.right)/2/ws, y:(y0+y1)/2-(P.top-P.bottom)/2/ws, z};
+}
+const camXY=(cam,lat,lng)=>{const [mx,my]=merc([lat,lng]), ws=TILE*2**cam.z; return {x:innerWidth/2+(mx-cam.x)*ws, y:innerHeight/2+(my-cam.y)*ws};};
+// smooth pan-and-zoom path between two views (van Wijk & Nuij): long hops rise up and come back down
+function zoomPath(a,b,rho=1.4){
+  const [ux0,uy0,w0]=a,[ux1,uy1,w1]=b, dx=ux1-ux0, dy=uy1-uy0, d2=dx*dx+dy*dy, r2=rho*rho;
+  if(d2<1e-18){ const S=Math.log(w1/w0)/rho; return t=>[ux0+t*dx,uy0+t*dy,w0*Math.exp(rho*t*S)]; }
+  const d1=Math.sqrt(d2), b0=(w1*w1-w0*w0+r2*r2*d2)/(2*w0*r2*d1), b1=(w1*w1-w0*w0-r2*r2*d2)/(2*w1*r2*d1),
+        q0=Math.log(Math.sqrt(b0*b0+1)-b0), q1=Math.log(Math.sqrt(b1*b1+1)-b1), S=(q1-q0)/rho;
+  return t=>{ const s=t*S, c=Math.cosh(q0), u=w0/(r2*d1)*(c*Math.tanh(rho*s+q0)-Math.sinh(q0)); return [ux0+u*dx,uy0+u*dy,w0*c/Math.cosh(rho*s+q0)]; };
+}
+function lerpCam(a,b,t){
+  if(t<=0) return a; if(t>=1) return b;
+  const W=innerWidth, [x,y,w]=zoomPath([a.x,a.y,W/(TILE*2**a.z)],[b.x,b.y,W/(TILE*2**b.z)])(t);
+  return {x,y,z:Math.log2(W/(TILE*w))};
+}
 let ALL=[], mapApi;
 
 /* Leaflet + Esri World Topo */
 const leafletMap={
   active:null,
   init(){
-    this.map=L.map('canvas',{zoomControl:false,dragging:false,touchZoom:false,scrollWheelZoom:false,doubleClickZoom:false,boxZoom:false,keyboard:false,tap:false,zoomSnap:.1});
+    this.map=L.map('canvas',{zoomControl:false,dragging:false,touchZoom:false,scrollWheelZoom:false,doubleClickZoom:false,boxZoom:false,keyboard:false,tap:false,zoomSnap:0,fadeAnimation:false});
     this.base=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'Tiles &copy; Esri &mdash; Esri, HERE, Garmin, USGS, NGA, and others'}).addTo(this.map);
     this.map.createPane('cities').style.zIndex=450;
     this.ovBase=L.tileLayer(OVERVIEW_TILES,{maxZoom:13,maxNativeZoom:13,className:'ovbase',opacity:0}).addTo(this.map);
+    this.map.setView([44,-90],4);
     addEventListener('resize',()=>this.map.invalidateSize());
   },
   line(pts,st,group){ return L.polyline(pts,{color:st.color,weight:st.weight,opacity:st.opacity,dashArray:st.dash?(st.dashArray||'2 8'):null,lineCap:'round',lineJoin:'round',smoothFactor:st.dashArray?0:1,interactive:false}).addTo(group||this.map); },
@@ -271,28 +303,20 @@ const leafletMap={
     ov.flights.forEach(f=>this.line(f,OV_STYLE.air,this.overview));
     ov.drives.forEach(d=>this.line(d,OV_STYLE.ground,this.overview));
   },
-  showOverview(on){
-    if(on){ this.map.removeLayer(this.context); this.overview.addTo(this.map); }
-    else { this.map.removeLayer(this.overview); this.context.addTo(this.map); }
-    this.ovBase.setOpacity(on?1:0);
-  },
-  labelCities(){
-    this.cities.clearLayers();
-    placeLabels(p=>this.map.latLngToContainerPoint([p.lat,p.lng])).forEach(p=>
-      L.circleMarker([p.lat,p.lng],{pane:'cities',radius:4,color:'#FFFFFF',weight:2,fillColor:PIN.fill,fillOpacity:1,interactive:false})
-       .bindTooltip(p.name,{permanent:true,direction:p.dir||'bottom',offset:{bottom:[0,4],top:[0,-4],left:[-4,0],right:[4,0]}[p.dir||'bottom'],className:'citylabel'}).addTo(this.cities));
-  },
-  focus(view,force){
+  scene(view){
     if(this.active){this.map.removeLayer(this.active);this.active=null;}
-    this.showOverview(!view);
-    let pts=ALL;
-    if(view){ this.active=L.layerGroup().addTo(this.map); this.draw(view,STYLE.hot,this.active); this.pins(view,this.active); pts=scenePoints(view); }
-    if(!pts.length) return;
-    const p=padding(!view), b=L.latLngBounds(pts).pad(!view?.02:pts.length<3?.6:.08);
-    const opts={paddingTopLeft:[p.left,p.top],paddingBottomRight:[p.right,p.bottom],maxZoom:(view&&view.route&&view.route.length>1)?15:13};
-    if(!view){ opts.maxZoom=6; if(this._lbl) this.map.off('moveend',this._lbl); this._lbl=()=>this.labelCities(); this.map.once('moveend',this._lbl); }
-    if(REDUCED || !this.map._loaded || force) this.map.fitBounds(b,{...opts,animate:false}); else this.map.flyToBounds(b,{...opts,duration:1.1,easeLinearity:.35});
-  }
+    if(!view){ this.map.removeLayer(this.context); this.overview.addTo(this.map); }
+    else { this.map.removeLayer(this.overview); this.context.addTo(this.map);
+      this.active=L.layerGroup().addTo(this.map); this.draw(view,STYLE.hot,this.active); this.pins(view,this.active); }
+    this.ovBase.setOpacity(view?0:1);
+  },
+  labelCities(places){
+    this.cities.clearLayers();
+    places.forEach(p=>{ const off={bottom:[p.dx,4],top:[p.dx,-4],left:[-4,0],right:[4,0]}[p.dir];
+      L.circleMarker([p.lat,p.lng],{pane:'cities',radius:4,color:'#FFFFFF',weight:2,fillColor:PIN.fill,fillOpacity:1,interactive:false})
+       .bindTooltip(p.name,{permanent:true,direction:p.dir,offset:off,className:'citylabel'}).addTo(this.cities); });
+  },
+  camera(c){ const [lat,lng]=unmerc([c.x,c.y]); this.map.setView([lat,lng],c.z,{animate:false}); }
 };
 
 /* Google Maps terrain */
@@ -319,41 +343,34 @@ const googleMap={
     ov.flights.forEach(f=>this.line(f,OV_STYLE.air,this.overview));
     ov.drives.forEach(d=>this.line(d,OV_STYLE.ground,this.overview));
   },
-  showOverview(on){ this.map.setOptions({styles:on?[{elementType:'labels',stylers:[{visibility:'off'}]}]:null});
-    this.context.forEach(m=>m.setMap(on?null:this.map)); [...this.overview,...this.cities].forEach(m=>m.setMap(on?this.map:null)); },
-  labelCities(){
-    this.cities.forEach(m=>m.setMap(null)); this.cities=[];
-    const proj=this.map.getProjection(), bnd=this.map.getBounds(); if(!proj||!bnd) return;
-    const sc=2**this.map.getZoom(), nw=proj.fromLatLngToPoint({lat:bnd.getNorthEast().lat(),lng:bnd.getSouthWest().lng()});
-    const xy=p=>{const w=proj.fromLatLngToPoint(p); return {x:(w.x-nw.x)*sc,y:(w.y-nw.y)*sc};};
-    placeLabels(xy).forEach(p=>this.cities.push(new google.maps.Marker({position:{lat:p.lat,lng:p.lng},map:this.map,clickable:false,
-      icon:{path:google.maps.SymbolPath.CIRCLE,scale:4,fillColor:PIN.fill,fillOpacity:1,strokeColor:'#FFFFFF',strokeWeight:2,labelOrigin:(()=>{const w=p.name.length*7.6/8+2.5; return new google.maps.Point(...({bottom:[0,3.4],top:[0,-2.6],left:[-w,.4],right:[w,.4]}[p.dir||'bottom']));})()},
-      label:{text:p.name,color:'#1C261C',fontFamily:'Fraunces, serif',fontSize:'13px',fontWeight:'600',className:'gpinlabel'}})));
-  },
-  focus(view){
+  scene(view){
     this.active.forEach(m=>m.setMap(null)); this.active=[];
-    this.showOverview(!view);
-    let pts=ALL;
-    if(view){ this.draw(view,STYLE.hot,this.active); this.pins(view,this.active); pts=scenePoints(view); }
-    if(!pts.length) return;
-    const b=new google.maps.LatLngBounds(); pts.forEach(p=>b.extend({lat:p[0],lng:p[1]}));
-    if(pts.length<3){ const c=b.getCenter(); const k=pts.length<2?.02:.6; const sp=b.toSpan(); b.extend({lat:c.lat()+Math.max(k*sp.lat(),.015),lng:c.lng()+Math.max(k*sp.lng(),.015)}); b.extend({lat:c.lat()-Math.max(k*sp.lat(),.015),lng:c.lng()-Math.max(k*sp.lng(),.015)}); }
-    this.map.fitBounds(b,padding(!view));
-    const mz=!view?6:(view.route&&view.route.length>1)?15:13; google.maps.event.addListenerOnce(this.map,'idle',()=>{ if(this.map.getZoom()>mz) this.map.setZoom(mz); if(!view) this.labelCities(); });
-  }
+    const on=!view;
+    this.map.setOptions({styles:on?[{elementType:'labels',stylers:[{visibility:'off'}]}]:null});
+    this.context.forEach(m=>m.setMap(on?null:this.map)); [...this.overview,...this.cities].forEach(m=>m.setMap(on?this.map:null));
+    if(view){ this.draw(view,STYLE.hot,this.active); this.pins(view,this.active); }
+  },
+  labelCities(places){
+    this.cities.forEach(m=>m.setMap(null)); this.cities=[];
+    places.forEach(p=>{ const w=p.name.length*7.6/8+2.5, o={bottom:[p.dx/4,3.4],top:[p.dx/4,-2.6],left:[-w,.4],right:[w,.4]}[p.dir];
+      this.cities.push(new google.maps.Marker({position:{lat:p.lat,lng:p.lng},map:this.map,clickable:false,
+        icon:{path:google.maps.SymbolPath.CIRCLE,scale:4,fillColor:PIN.fill,fillOpacity:1,strokeColor:'#FFFFFF',strokeWeight:2,labelOrigin:new google.maps.Point(o[0],o[1])},
+        label:{text:p.name,color:'#1C261C',fontFamily:'Fraunces, serif',fontSize:'13px',fontWeight:'600',className:'gpinlabel'}})); });
+  },
+  camera(c){ const [lat,lng]=unmerc([c.x,c.y]); const o={center:{lat,lng},zoom:c.z};
+    if(this.map.moveCamera) this.map.moveCamera(o); else { this.map.setCenter(o.center); this.map.setZoom(o.zoom); } }
 };
 async function initMap(){
   mapApi = GOOGLE_MAPS_KEY ? googleMap : leafletMap;
   // If Google rejects the key (not enabled, wrong referrer, billing off) fall back to Esri so the page still works
-  window.gm_authFailure=()=>{ console.warn('Google Maps rejected the key; using Esri World Topo instead.'); const c=document.getElementById('canvas'); c.replaceWith(Object.assign(document.createElement('div'),{id:'canvas'})); mapApi=leafletMap; leafletMap.init(); mapApi.whole(ROUTES); active=null; onScroll(true); };
+  window.gm_authFailure=()=>{ console.warn('Google Maps rejected the key; using Esri World Topo instead.'); const c=document.getElementById('canvas'); c.replaceWith(Object.assign(document.createElement('div'),{id:'canvas'})); mapApi=leafletMap; leafletMap.init(); mapApi.whole(ROUTES); state=undefined; render(); };
   try{ await mapApi.init(); }catch(e){ mapApi=leafletMap; await mapApi.init(); }
 }
 let ROUTES=[];
 function drawWholeTrip(routes){ ROUTES=routes; routes.forEach(r=>r.scenes.forEach(v=>ALL.push(...scenePoints(v)))); mapApi.whole(routes); }
-function focus(view,force){ mapApi.focus(view,force); }
 
 /* ---------- build ---------- */
-let CARDS=[], active=null, points=[];
+let CARDS=[];
 async function main(){
   let md,tl;
   try{ [md,tl]=await Promise.all([fetch(CONTENT_URL).then(r=>r.text()),fetch(ROUTE_URL).then(r=>r.json())]); }
@@ -388,22 +405,38 @@ async function main(){
   layout(); onScroll(true);
   addEventListener('scroll',()=>onScroll(),{passive:true});
   addEventListener('resize',()=>{layout();onScroll(true);});
-  document.fonts && document.fonts.ready.then(layout);
+  document.fonts && document.fonts.ready.then(()=>{layout();onScroll(true);});
 }
+/* ---------- scroll: each gap between cards scrubs the camera from the last view to the next ---------- */
+let SEG=[], CAMS=[], OVCAM=null, state, raf=0;
 function layout(){
-  // activation point for card i = midpoint of the map-only gap before it
-  const cards=[...document.querySelectorAll('.card')];
+  const H=innerHeight, cards=[...document.querySelectorAll('.card')];
+  OVCAM=cameraFor(null);
+  CAMS=CARDS.map(c=>c.view?cameraFor(c.view):null); CAMS.forEach((c,i)=>{ if(!c) CAMS[i]=i?CAMS[i-1]:OVCAM; });
   let prevBottom=document.querySelector('.hero').getBoundingClientRect().bottom+scrollY;
-  points=cards.map(el=>{const r=el.getBoundingClientRect(); const top=r.top+scrollY; const p=(prevBottom+top)/2; prevBottom=r.bottom+scrollY; return p;});
+  SEG=cards.map((el,i)=>{ const r=el.getBoundingClientRect(), top=r.top+scrollY;
+    // first gap: the overview holds for a beat once the title has scrolled away, then zooms toward Day 1
+    const start=i===0?prevBottom+.35*H:prevBottom-.6*H, end=Math.max(start+1,top-.85*H);   // lands just before the card slides in
+    prevBottom=r.bottom+scrollY; return {start,end}; });
+  state=undefined;
 }
-function onScroll(force){
-  const y=scrollY+innerHeight*0.5; let i=-1;
-  for(let k=0;k<points.length;k++){ if(points[k]<y) i=k; else break; }
+function onScroll(force){ if(force){ cancelAnimationFrame(raf); raf=0; render(); } else if(!raf) raf=requestAnimationFrame(()=>{raf=0;render();}); }
+function render(){
+  if(!mapApi||!OVCAM) return;
+  const y=scrollY; let i=-1;
+  for(let k=0;k<SEG.length;k++){ if(SEG[k].start<=y) i=k; else break; }
+  let cam=OVCAM, s=-1;
+  if(i>=0){ const g=SEG[i]; let t=Math.max(0,Math.min(1,(y-g.start)/(g.end-g.start))); if(REDUCED) t=t<.5?0:1;
+    const e=t*t*(3-2*t); cam=lerpCam(i?CAMS[i-1]:OVCAM, CAMS[i], e); s=t<.5?i-1:i; }
   const label=document.getElementById('maplabel');
   label.classList.toggle('on', scrollY>innerHeight*0.4);
-  if(i===active && !force) return; active=i;
-  if(i<0){ focus(null,force); label.innerHTML=`The whole trip<span class="key"><svg width="22" height="6"><line x1="2" y1="3" x2="20" y2="3" stroke="#E4A398" stroke-width="3.5" stroke-linecap="round"/></svg><i>drove</i><svg width="24" height="6"><line x1="2" y1="3" x2="22" y2="3" stroke="#E4A398" stroke-width="3" stroke-linecap="round" stroke-dasharray="4 6"/></svg><i>flew</i></span>`; }
-  else { const c=CARDS[i]; focus(c.view,force); label.innerHTML=`Day ${c.day.n}${c.view&&c.view.label?`<small>${esc(c.view.label)}</small>`:''}`; }
+  if(s!==state){ state=s;
+    const view=s<0?null:CARDS[s].view; mapApi.scene(view);
+    if(s<0){ mapApi.labelCities(placeLabels(p=>camXY(OVCAM,p.lat,p.lng)));
+      label.innerHTML=`The whole trip<span class="key"><svg width="22" height="6"><line x1="2" y1="3" x2="20" y2="3" stroke="#E4A398" stroke-width="3.5" stroke-linecap="round"/></svg><i>drove</i><svg width="24" height="6"><line x1="2" y1="3" x2="22" y2="3" stroke="#E4A398" stroke-width="3" stroke-linecap="round" stroke-dasharray="4 6"/></svg><i>flew</i></span>`; }
+    else { const c=CARDS[s]; label.innerHTML=`Day ${c.day.n}${c.view&&c.view.label?`<small>${esc(c.view.label)}</small>`:''}`; }
+  }
+  mapApi.camera(cam);
 }
 main();
 </script>
