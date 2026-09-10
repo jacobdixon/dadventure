@@ -357,8 +357,7 @@ const googleMap={
         icon:{path:google.maps.SymbolPath.CIRCLE,scale:4,fillColor:PIN.fill,fillOpacity:1,strokeColor:'#FFFFFF',strokeWeight:2,labelOrigin:new google.maps.Point(o[0],o[1])},
         label:{text:p.name,color:'#1C261C',fontFamily:'Fraunces, serif',fontSize:'13px',fontWeight:'600',className:'gpinlabel'}})); });
   },
-  camera(c){ const [lat,lng]=unmerc([c.x,c.y]); const o={center:{lat,lng},zoom:c.z};
-    if(this.map.moveCamera) this.map.moveCamera(o); else { this.map.setCenter(o.center); this.map.setZoom(o.zoom); } }
+  camera(c){ const [lat,lng]=unmerc([c.x,c.y]); this.map.setOptions({center:{lat,lng},zoom:c.z}); }   // moveCamera is a no-op on raster maps
 };
 async function initMap(){
   mapApi = GOOGLE_MAPS_KEY ? googleMap : leafletMap;
