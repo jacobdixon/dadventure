@@ -188,8 +188,7 @@ const scenePoints=v=>[...(v.route||[]),...(v.flights||[]).flat(),...(v.pins||[])
 
 /* ---------- map: Google terrain if a key is set, otherwise Esri topo via Leaflet ---------- */
 const dist=(a,b)=>{const R=3959,t=Math.PI/180,dl=(b[0]-a[0])*t,dn=(b[1]-a[1])*t;const h=Math.sin(dl/2)**2+Math.cos(a[0]*t)*Math.cos(b[0]*t)*Math.sin(dn/2)**2;return 2*R*Math.asin(Math.sqrt(h));};
-const STYLE={ soft:{ground:{color:'#C8321F',weight:2,opacity:.35},air:{color:'#C8321F',weight:1.2,opacity:.3,dash:true}},
-              hot:{casing:{color:'#FFFFFF',weight:5,opacity:.6},ground:{color:'#C8321F',weight:2.5,opacity:.85},air:{color:'#C8321F',weight:2,opacity:.85,dash:true}} };
+const STYLE={ hot:{casing:{color:'#FFFFFF',weight:5,opacity:.6},ground:{color:'#C8321F',weight:2.5,opacity:.85},air:{color:'#C8321F',weight:2,opacity:.85,dash:true}} };
 const PIN={fill:'#1C261C',stroke:'#FFFFFF',r:5};
 const OV_STYLE={ casing:{color:'#FFFFFF',weight:8,opacity:.85}, ground:{color:'#C8321F',weight:4,opacity:1},
                  air:{color:'#C8321F',weight:3.5,opacity:.95,dash:true,dashArray:'7 10',gap:17} };
@@ -293,9 +292,7 @@ const leafletMap={
   },
   line(pts,st,group){ return L.polyline(pts,{color:st.color,weight:st.weight,opacity:st.opacity,dashArray:st.dash?(st.dashArray||'2 8'):null,lineCap:'round',lineJoin:'round',smoothFactor:st.dashArray?0:1,interactive:false}).addTo(group||this.map); },
   draw(v,style,group){ if(v.route&&v.route.length>1){ if(style.casing) this.line(v.route,style.casing,group); this.line(v.route,style.ground,group);} (v.flights||[]).forEach(f=>this.line(f,style.air,group)); },
-  pins(v,group){ (v.pins||[]).forEach(p=>L.circleMarker([p.lat,p.lng],{radius:PIN.r,color:PIN.stroke,weight:2,fillColor:PIN.fill,fillOpacity:1,interactive:false}).addTo(group)); },   // stops are dots only; the letters name them
   whole(routes){
-    this.context=L.layerGroup(); routes.forEach(r=>r.scenes.forEach(v=>this.draw(v,STYLE.soft,this.context)));
     this.overview=L.layerGroup(); this.cities=L.layerGroup().addTo(this.overview);
     const ov=buildOverview(routes);
     ov.drives.forEach(d=>this.line(d,OV_STYLE.casing,this.overview));
@@ -304,9 +301,9 @@ const leafletMap={
   },
   scene(view){
     if(this.active){this.map.removeLayer(this.active);this.active=null;}
-    if(!view){ this.map.removeLayer(this.context); this.overview.addTo(this.map); }
-    else { this.map.removeLayer(this.overview); this.context.addTo(this.map);
-      this.active=L.layerGroup().addTo(this.map); this.draw(view,STYLE.hot,this.active); this.pins(view,this.active); }
+    // each day screen shows only its own route: no stop dots, no faint lines from other days
+    if(!view){ this.overview.addTo(this.map); }
+    else { this.map.removeLayer(this.overview); this.active=L.layerGroup().addTo(this.map); this.draw(view,STYLE.hot,this.active); }
     this.ovBase.setOpacity(view?0:1);
   },
   labelCities(places){
@@ -333,10 +330,7 @@ const googleMap={
     const pl=new google.maps.Polyline(opts); if(bucket) bucket.push(pl); return pl;
   },
   draw(v,style,bucket){ if(v.route&&v.route.length>1){ if(style.casing) this.line(v.route,style.casing,bucket); this.line(v.route,style.ground,bucket);} (v.flights||[]).forEach(f=>this.line(f,style.air,bucket)); },
-  pins(v,bucket){ (v.pins||[]).forEach(p=>{ const mk=new google.maps.Marker({position:{lat:p.lat,lng:p.lng},map:this.map,clickable:false,
-      icon:{path:google.maps.SymbolPath.CIRCLE,scale:PIN.r,fillColor:PIN.fill,fillOpacity:1,strokeColor:PIN.stroke,strokeWeight:2}}); bucket.push(mk); }); },   // stops are dots only; the letters name them
   whole(routes){
-    this.context=[]; routes.forEach(r=>r.scenes.forEach(v=>this.draw(v,STYLE.soft,this.context)));
     this.overview=[]; this.cities=[];
     const ov=buildOverview(routes);
     ov.drives.forEach(d=>this.line(d,OV_STYLE.casing,this.overview));
@@ -347,8 +341,8 @@ const googleMap={
     this.active.forEach(m=>m.setMap(null)); this.active=[];
     const on=!view;
     if(!this.vector) this.map.setOptions({styles:on?[{elementType:'labels',stylers:[{visibility:'off'}]}]:null});
-    this.context.forEach(m=>m.setMap(on?null:this.map)); [...this.overview,...this.cities].forEach(m=>m.setMap(on?this.map:null));
-    if(view){ this.draw(view,STYLE.hot,this.active); this.pins(view,this.active); }
+    [...this.overview,...this.cities].forEach(m=>m.setMap(on?this.map:null));
+    if(view) this.draw(view,STYLE.hot,this.active);   // only this screen's route: no stop dots, no faint lines from other days
   },
   labelCities(places){
     this.cities.forEach(m=>m.setMap(null)); this.cities=[];
