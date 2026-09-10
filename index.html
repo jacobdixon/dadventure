@@ -300,7 +300,7 @@ const googleMap={
   active:[],
   async init(){
     await new Promise((res,rej)=>{window.__gmReady=res;const sc=document.createElement('script');sc.src=`https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_KEY}&v=weekly&loading=async&callback=__gmReady`;sc.onerror=rej;document.head.appendChild(sc);});
-    this.map=new google.maps.Map(document.getElementById('canvas'),{mapTypeId:'terrain',disableDefaultUI:true,gestureHandling:'none',keyboardShortcuts:false,clickableIcons:false,center:{lat:44,lng:-90},zoom:4});
+    this.map=new google.maps.Map(document.getElementById('canvas'),{mapTypeId:'terrain',disableDefaultUI:true,gestureHandling:'none',keyboardShortcuts:false,clickableIcons:false,isFractionalZoomEnabled:true,center:{lat:44,lng:-90},zoom:4});
   },
   line(pts,st,bucket){
     const opts={path:pts.map(p=>({lat:p[0],lng:p[1]})),strokeColor:st.color,strokeOpacity:st.dash?0:st.opacity,strokeWeight:st.weight,clickable:false,map:this.map};
@@ -319,7 +319,7 @@ const googleMap={
     ov.flights.forEach(f=>this.line(f,OV_STYLE.air,this.overview));
     ov.drives.forEach(d=>this.line(d,OV_STYLE.ground,this.overview));
   },
-  showOverview(on){ this.map.setOptions({styles:on?[{elementType:'labels',stylers:[{visibility:'off'}]},{featureType:'administrative.country',elementType:'labels',stylers:[{visibility:'on'}]}]:null});
+  showOverview(on){ this.map.setOptions({styles:on?[{elementType:'labels',stylers:[{visibility:'off'}]}]:null});
     this.context.forEach(m=>m.setMap(on?null:this.map)); [...this.overview,...this.cities].forEach(m=>m.setMap(on?this.map:null)); },
   labelCities(){
     this.cities.forEach(m=>m.setMap(null)); this.cities=[];
