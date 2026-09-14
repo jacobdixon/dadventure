@@ -155,9 +155,10 @@ function parseContent(src){
     const meta=readMeta(lines);
     const nm=heading.match(/\d+/);
     const day={n:nm?+nm[0]:days.length+1, date:meta.date||'', place:meta.place||heading, cards:[]};
-    const first={text:lines.join('\n').trim(), photos:splitList(meta.photos), scene:meta.scene||''};
+    const first={text:lines.join('\n').trim(), photos:splitList(meta.photos), scene:meta.scene||'', place:''};
     day.cards.push(first);
-    chunks.slice(1).forEach(c=>{const ls=c.trim().split('\n'); const mm=readMeta(ls); day.cards.push({text:ls.join('\n').trim(), photos:splitList(mm.photos), scene:mm.scene||''});});
+    // a card can title its own leg with its own place: line after the ---; otherwise it inherits the day's
+    chunks.slice(1).forEach(c=>{const ls=c.trim().split('\n'); const mm=readMeta(ls); day.cards.push({text:ls.join('\n').trim(), photos:splitList(mm.photos), scene:mm.scene||'', place:mm.place||''});});
     days.push(day);
   });
   return {fm,days};
@@ -168,7 +169,11 @@ function renderLetter(text){
   const paras=text.split(/\n\s*\n/);
   return paras.map((p,i)=>{
     let h=esc(p.replace(/\\([<>*])/g,'$1'));
+    // [some words](https://...) links the phrase itself; a bare URL still linkifies to just its domain
+    const links=[];
+    h=h.replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g,(m,t,u)=>` ${links.push(`<a href="${u}" target="_blank" rel="noopener">${t}</a>`)-1} `);
     h=h.replace(/(https?:\/\/[^\s<]+)/g,u=>`<a href="${u}" target="_blank" rel="noopener">${u.replace(/^https?:\/\/(www\.)?/,'').split('/')[0]}</a>`);
+    h=h.replace(/ (\d+) /g,(m,n)=>links[+n]);
     const sig=i===paras.length-1 && /^(love|miss you|lots of love|dad|oh canada)/i.test(p.trim());
     return `<p${sig?' class="sig"':''}>${h}</p>`;
   }).join('');
@@ -325,8 +330,8 @@ const googleMap={
     this.vector=!!GOOGLE_MAP_ID;
     this.map=new google.maps.Map(document.getElementById('canvas'),this.vector?{...base,mapId:GOOGLE_MAP_ID,renderingType:'VECTOR'}:{...base,mapTypeId:'terrain'});
     // Google quietly falls back to raster when a vector Map ID can't load (Map ID not published as
-    // vector, no WebGL, blocked GPU). Believe what actually rendered, not what we asked for: on a
-    // raster map moveCamera() is a no-op, so the camera would sit frozen for the whole scroll.
+    // vector, no WebGL, blocked GPU). Believe what actually rendered, not what we asked for: the
+    // label-hiding styles below only apply to a raster map, and a wrong flag hid that from us.
     const settle=()=>{
       const RT=google.maps.RenderingType||{}, rt=this.map.getRenderingType&&this.map.getRenderingType();
       if(!rt||rt===RT.UNINITIALIZED) return;
@@ -366,8 +371,12 @@ const googleMap={
         icon:{path:google.maps.SymbolPath.CIRCLE,scale:4,fillColor:PIN.fill,fillOpacity:1,strokeColor:'#FFFFFF',strokeWeight:2,labelOrigin:new google.maps.Point(o[0],o[1])},
         label:{text:p.name,color:'#1C261C',fontFamily:'Fraunces, serif',fontSize:'13px',fontWeight:'600',className:'gpinlabel'}})); });
   },
-  camera(c){ const [lat,lng]=unmerc([c.x,c.y]);
-    if(this.vector) this.map.moveCamera({center:{lat,lng},zoom:c.z}); else this.map.setOptions({center:{lat,lng},zoom:c.z}); }   // moveCamera is a no-op on raster maps
+  // setOptions drives the camera on BOTH raster and vector. moveCamera reads like the right API for a
+  // vector map, but it does nothing on this map -- verified on the live page against a genuine VECTOR
+  // rendering type: moveCamera left the camera at its initial 44,-90 z4, setOptions moved it. Most
+  // likely because the map is built with gestureHandling 'none' and no default UI, so nothing ever
+  // applies the camera instruction. This was the frozen-scroll bug; do not "restore" moveCamera.
+  camera(c){ const [lat,lng]=unmerc([c.x,c.y]); this.map.setOptions({center:{lat,lng},zoom:c.z}); }
 };
 async function initMap(){
   mapApi = GOOGLE_MAPS_KEY ? googleMap : leafletMap;
@@ -394,7 +403,7 @@ async function main(){
   const used=days.map(d=>byDate[d.date]).filter(Boolean);
   const ground=used.reduce((s,r)=>s+r.groundMi,0), air=used.reduce((s,r)=>s+r.flightMi,0);
   document.getElementById('totals').innerHTML=`<div><b>${days.length}</b>days</div><div><b>${ground.toLocaleString()}</b>miles on the ground</div><div><b>${air.toLocaleString()}</b>miles in the air</div>`;
-  document.getElementById('end').textContent='Written on the road, one night at a time.';
+  document.getElementById('end').textContent=fm.colophon||'';
 
   let html='<div class="gap first"></div>'; let k=0;
   days.forEach(day=>{
@@ -403,7 +412,7 @@ async function main(){
       const v=views[ci]; CARDS.push({day,card:c,view:v});
       const photos=c.photos.length?`<div class="photos">${c.photos.map(p=>`<figure><img src="${PHOTO_DIR+p}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'missing',textContent:'${esc(p)}'}))"></figure>`).join('')}</div>`:'';
       html+=`<article class="card" data-k="${k++}">
-        <header><div class="n${ci?' cont':''}">${day.n}</div><div class="place">${esc(day.place)}</div>
+        <header><div class="n${ci?' cont':''}">${day.n}</div><div class="place">${esc(c.place||day.place)}</div>
         <div class="meta"><span>${fmtDate(day.date)}</span>${v&&v.label?`<span>${esc(v.label)}</span>`:''}</div></header>
         ${photos}<div class="letter">${renderLetter(c.text)}</div></article><div class="gap"></div>`;
     });
