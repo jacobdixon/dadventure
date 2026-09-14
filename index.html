@@ -325,8 +325,8 @@ const googleMap={
     this.vector=!!GOOGLE_MAP_ID;
     this.map=new google.maps.Map(document.getElementById('canvas'),this.vector?{...base,mapId:GOOGLE_MAP_ID,renderingType:'VECTOR'}:{...base,mapTypeId:'terrain'});
     // Google quietly falls back to raster when a vector Map ID can't load (Map ID not published as
-    // vector, no WebGL, blocked GPU). Believe what actually rendered, not what we asked for: on a
-    // raster map moveCamera() is a no-op, so the camera would sit frozen for the whole scroll.
+    // vector, no WebGL, blocked GPU). Believe what actually rendered, not what we asked for: the
+    // label-hiding styles below only apply to a raster map, and a wrong flag hid that from us.
     const settle=()=>{
       const RT=google.maps.RenderingType||{}, rt=this.map.getRenderingType&&this.map.getRenderingType();
       if(!rt||rt===RT.UNINITIALIZED) return;
@@ -366,8 +366,12 @@ const googleMap={
         icon:{path:google.maps.SymbolPath.CIRCLE,scale:4,fillColor:PIN.fill,fillOpacity:1,strokeColor:'#FFFFFF',strokeWeight:2,labelOrigin:new google.maps.Point(o[0],o[1])},
         label:{text:p.name,color:'#1C261C',fontFamily:'Fraunces, serif',fontSize:'13px',fontWeight:'600',className:'gpinlabel'}})); });
   },
-  camera(c){ const [lat,lng]=unmerc([c.x,c.y]);
-    if(this.vector) this.map.moveCamera({center:{lat,lng},zoom:c.z}); else this.map.setOptions({center:{lat,lng},zoom:c.z}); }   // moveCamera is a no-op on raster maps
+  // setOptions drives the camera on BOTH raster and vector. moveCamera reads like the right API for a
+  // vector map, but it does nothing on this map -- verified on the live page against a genuine VECTOR
+  // rendering type: moveCamera left the camera at its initial 44,-90 z4, setOptions moved it. Most
+  // likely because the map is built with gestureHandling 'none' and no default UI, so nothing ever
+  // applies the camera instruction. This was the frozen-scroll bug; do not "restore" moveCamera.
+  camera(c){ const [lat,lng]=unmerc([c.x,c.y]); this.map.setOptions({center:{lat,lng},zoom:c.z}); }
 };
 async function initMap(){
   mapApi = GOOGLE_MAPS_KEY ? googleMap : leafletMap;
