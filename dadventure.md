@@ -334,3 +334,18 @@ Finishing this dispatch up from the airport. On my way home. I miss you so much!
 
 Love,
 Dad
+
+---
+
+Harper, Beckett — here's the thing I want you to take from all of this.
+
+None of these days happened by accident. Somebody sent a text. Somebody said come stay with us. Somebody kept a friendship alive for thirty years until it was ready to hand me a barstool and an insider tour of their bar.
+
+So send the text. Make the call. Take the trip. Say yes to the lake, the couch, the long drive, the hot tub in the rainstorm.
+
+The people are the trip. The map is just how I got to them.
+
+Go find your own.
+
+Love,
+Dad
