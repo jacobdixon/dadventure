@@ -254,7 +254,7 @@ const TILE=256;
 const merc=([lat,lng])=>{const s=Math.sin(Math.max(-85,Math.min(85,lat))*Math.PI/180); return [(lng+180)/360,.5-Math.log((1+s)/(1-s))/(4*Math.PI)];};
 const unmerc=([x,y])=>[Math.atan(Math.sinh(Math.PI*(1-2*y)))*180/Math.PI, x*360-180];
 function cameraFor(view){
-  const overview=!view, pts=overview?ALL:scenePoints(view); if(!pts.length) return null;
+  const overview=!view||!!view.overview, pts=overview?ALL:scenePoints(view); if(!pts.length) return null;
   const P=padding(overview), W=innerWidth, H=innerHeight, m=pts.map(merc);
   let x0=Math.min(...m.map(p=>p[0])), x1=Math.max(...m.map(p=>p[0])), y0=Math.min(...m.map(p=>p[1])), y1=Math.max(...m.map(p=>p[1]));
   const pf=overview?.02:pts.length<3?.6:.08, px=(x1-x0)*pf, py=(y1-y0)*pf; x0-=px; x1+=px; y0-=py; y1+=py;
@@ -324,6 +324,20 @@ const googleMap={
     const base={disableDefaultUI:true,gestureHandling:'none',keyboardShortcuts:false,clickableIcons:false,isFractionalZoomEnabled:true,center:{lat:44,lng:-90},zoom:4};
     this.vector=!!GOOGLE_MAP_ID;
     this.map=new google.maps.Map(document.getElementById('canvas'),this.vector?{...base,mapId:GOOGLE_MAP_ID,renderingType:'VECTOR'}:{...base,mapTypeId:'terrain'});
+    // Google quietly falls back to raster when a vector Map ID can't load (Map ID not published as
+    // vector, no WebGL, blocked GPU). Believe what actually rendered, not what we asked for: on a
+    // raster map moveCamera() is a no-op, so the camera would sit frozen for the whole scroll.
+    const settle=()=>{
+      const RT=google.maps.RenderingType||{}, rt=this.map.getRenderingType&&this.map.getRenderingType();
+      if(!rt||rt===RT.UNINITIALIZED) return;
+      const isVec = rt===(RT.VECTOR||'VECTOR');
+      if(isVec===this.vector) return;
+      this.vector=isVec;
+      if(!isVec) console.warn('Vector map unavailable; using the raster camera and label styles.');
+      state=undefined; render();   // re-apply the label styling for whichever screen we are on
+    };
+    google.maps.event.addListenerOnce(this.map,'idle',settle);
+    this.map.addListener&&this.map.addListener('renderingtype_changed',settle);
   },
   line(pts,st,bucket){
     const opts={path:pts.map(p=>({lat:p[0],lng:p[1]})),strokeColor:st.color,strokeOpacity:st.dash?0:st.opacity,strokeWeight:st.weight,clickable:false,map:this.map};
@@ -436,10 +450,11 @@ function render(){
   if(i>=0){ const g=SEG[i]; let t=Math.max(0,Math.min(1,(y-g.start)/(g.end-g.start))); if(REDUCED) t=t<.5?0:1;
     const e=t*t*(3-2*t); cam=lerpCam(i?CAMS[i-1]:OVCAM, CAMS[i], e); s=t<.5?i-1:i; }
   const label=document.getElementById('maplabel');
-  label.classList.toggle('on', s<0 && scrollY>innerHeight*0.4);   // the pill (with the drove/flew key) belongs to the whole-trip screen only
+  const onOv = s<0 || !!(CARDS[s] && CARDS[s].view && CARDS[s].view.overview);
+  label.classList.toggle('on', onOv && scrollY>innerHeight*0.4);   // the pill (with the drove/flew key) belongs to the whole-trip screens
   if(s!==state){ state=s;
-    const view=s<0?null:CARDS[s].view; mapApi.scene(view);
-    if(s<0){ mapApi.labelCities(placeLabels(p=>camXY(OVCAM,p.lat,p.lng)));
+    const view=s<0?null:CARDS[s].view, isOv=!view||!!view.overview; mapApi.scene(isOv?null:view);
+    if(isOv){ mapApi.labelCities(placeLabels(p=>camXY(OVCAM,p.lat,p.lng)));
       label.innerHTML=`The whole trip<span class="key"><svg width="22" height="6"><line x1="2" y1="3" x2="20" y2="3" stroke="#E4A398" stroke-width="3.5" stroke-linecap="round"/></svg><i>drove</i><svg width="24" height="6"><line x1="2" y1="3" x2="22" y2="3" stroke="#E4A398" stroke-width="3" stroke-linecap="round" stroke-dasharray="4 6"/></svg><i>flew</i></span>`; }
   }
   mapApi.camera(cam);
