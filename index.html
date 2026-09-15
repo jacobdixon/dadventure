@@ -90,6 +90,57 @@
   .letter p:last-child{margin-bottom:0}
   .letter .sig{font-family:"Fraunces",serif;font-style:italic;font-weight:500}
 
+  /* ---------- tap a photo to see the whole frame ---------- */
+  .photos img{cursor:zoom-in}
+  .photos figure:focus-within{outline:3px solid #F2D14F;outline-offset:2px;border-radius:6px}
+  .lb{position:fixed;inset:0;z-index:20;display:none;place-items:center;background:rgba(20,26,20,.97);
+    padding:clamp(10px,3vw,40px);-webkit-tap-highlight-color:transparent}
+  .lb.on{display:grid}
+  .lb img{max-width:100%;max-height:100%;object-fit:contain;border-radius:4px;box-shadow:0 18px 60px rgba(0,0,0,.55)}
+  .lb button{position:absolute;background:rgba(255,255,255,.08);border:0;color:var(--paper);cursor:pointer;
+    padding:13px;line-height:0;border-radius:999px;transition:background .2s}
+  .lb button:hover{background:rgba(255,255,255,.2)}
+  .lb button:focus-visible{outline:3px solid #F2D14F;outline-offset:3px}
+  .lb .lb-x{top:max(12px,env(safe-area-inset-top));right:12px}
+  .lb .lb-prev{left:10px;top:50%;transform:translateY(-50%)}
+  .lb .lb-next{right:10px;top:50%;transform:translateY(-50%)}
+  .lb .lb-count{position:absolute;bottom:max(16px,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);
+    color:var(--paper);opacity:.7;font-size:14px;letter-spacing:.05em;font-style:italic}
+  .lb.single .lb-prev,.lb.single .lb-next,.lb.single .lb-count{display:none}
+  /* on a phone the arrows sit in the bottom corners, out of the way of the picture */
+  @media (max-width:560px){
+    .lb .lb-prev,.lb .lb-next{top:auto;transform:none;bottom:max(12px,env(safe-area-inset-bottom))}
+    .lb .lb-prev{left:12px} .lb .lb-next{right:12px}
+  }
+
+  /* ---------- a card inside the card: tap to flip a paragraph over ---------- */
+  .flip{display:block;margin:0 0 1.1em;cursor:pointer;perspective:1400px;-webkit-tap-highlight-color:transparent}
+  .flip-inner{display:grid;transition:transform .55s cubic-bezier(.2,.75,.2,1);transform-style:preserve-3d}
+  .flip[aria-pressed="true"] .flip-inner{transform:rotateY(180deg)}
+  /* both faces share one grid cell, so the card is as tall as the longer of the two; the shorter
+     face centres itself in that box rather than leaving a hole under it */
+  .flip-face{grid-area:1/1;backface-visibility:hidden;-webkit-backface-visibility:hidden;
+    display:flex;flex-direction:column;justify-content:center;
+    background:var(--paper-2);border:1px solid var(--rule);border-radius:10px;padding:18px 18px 13px}
+  .flip-back{transform:rotateY(180deg)}
+  .flip-face p{margin:0 0 .8em}
+  .flip-face p:last-of-type{margin-bottom:0}
+  .flip-hint{display:flex;align-items:center;gap:7px;margin-top:13px;padding-top:11px;border-top:1px dashed var(--rule);
+    color:var(--route);font-size:15px;font-style:italic}
+  .flip-hint svg{flex:none;transition:transform .55s cubic-bezier(.2,.75,.2,1)}
+  .flip:hover .flip-hint span,.flip:focus-visible .flip-hint span{text-decoration:underline;text-underline-offset:3px}
+  .flip:hover .flip-hint svg{transform:rotate(180deg)}
+  .flip:focus-visible{outline:3px solid #F2D14F;outline-offset:4px;border-radius:12px}
+  /* no spinning for anyone who asked not to be spun at: cross-fade the two faces instead */
+  @media (prefers-reduced-motion:reduce){
+    .flip-inner{transform:none!important;transition:none}
+    .flip-face{backface-visibility:visible;transition:opacity .25s ease}
+    .flip-back{transform:none;opacity:0}
+    .flip[aria-pressed="true"] .flip-back{opacity:1}
+    .flip-hint svg{transition:none}
+    .flip:hover .flip-hint svg{transform:none}
+  }
+
   /* ---------- desktop: cards ride the right side so the map stays readable on the left ---------- */
   @media (min-width:1000px){
     :root{--card-w:560px}
@@ -114,6 +165,14 @@
 <div class="story" id="story"></div>
 
 <footer class="end"><div id="end"></div></footer>
+
+<div class="lb" id="lb" role="dialog" aria-modal="true" aria-label="Photo" hidden>
+  <img alt="">
+  <button type="button" class="lb-x" aria-label="Close"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M5 5l14 14M19 5L5 19"/></svg></button>
+  <button type="button" class="lb-prev" aria-label="Previous photo"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+  <button type="button" class="lb-next" aria-label="Next photo"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+  <div class="lb-count"></div>
+</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
@@ -171,13 +230,110 @@ function renderLetter(text){
     let h=esc(p.replace(/\\([<>*])/g,'$1'));
     // [some words](https://...) links the phrase itself; a bare URL still linkifies to just its domain
     const links=[];
-    h=h.replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g,(m,t,u)=>` ${links.push(`<a href="${u}" target="_blank" rel="noopener">${t}</a>`)-1} `);
+    h=h.replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g,(m,t,u)=>'@@L'+(links.push(`<a href="${u}" target="_blank" rel="noopener">${t}</a>`)-1)+'@@');
     h=h.replace(/(https?:\/\/[^\s<]+)/g,u=>`<a href="${u}" target="_blank" rel="noopener">${u.replace(/^https?:\/\/(www\.)?/,'').split('/')[0]}</a>`);
-    h=h.replace(/ (\d+) /g,(m,n)=>links[+n]);
+    h=h.replace(/@@L(\d+)@@/g,(m,n)=>links[+n]);
     const sig=i===paras.length-1 && /^(love|miss you|lots of love|dad|oh canada)/i.test(p.trim());
     return `<p${sig?' class="sig"':''}>${h}</p>`;
   }).join('');
 }
+/* ---------- flip cards ----------
+   A paragraph can hide a second version of itself behind it:
+
+     :::flip tap to see what i actually wrote
+     the front text
+     :::back tap to flip back
+     the text behind it
+     :::
+
+   Both invites are optional; the defaults are the ones above. */
+const FLIP_ICON='<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 0 1 15.3-6.4L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15.3 6.4L3 16"/><path d="M3 21v-5h5"/></svg>';
+const flipCard=(front,fi,back,bi)=>`<div class="flip" role="button" tabindex="0" aria-pressed="false">`
+  +`<div class="flip-inner">`
+  +`<div class="flip-face flip-front">${front}<div class="flip-hint">${FLIP_ICON}<span>${esc(fi)}</span></div></div>`
+  +`<div class="flip-face flip-back" aria-hidden="true">${back}<div class="flip-hint">${FLIP_ICON}<span>${esc(bi)}</span></div></div>`
+  +`</div></div>`;
+function renderBody(text){
+  const lines=text.split('\n'); let out='', buf=[], i=0;
+  const flush=()=>{ const t=buf.join('\n').trim(); if(t) out+=renderLetter(t); buf=[]; };
+  while(i<lines.length){
+    const open=lines[i].match(/^:::flip[ \t]*(.*)$/);
+    if(!open){ buf.push(lines[i++]); continue; }
+    flush(); i++;
+    const fi=(open[1]||'').trim()||'tap to see what i actually wrote';
+    const front=[], back=[]; let bi='tap to flip back', onBack=false;
+    while(i<lines.length){
+      const b=lines[i].match(/^:::back[ \t]*(.*)$/);
+      if(b){ if(b[1].trim()) bi=b[1].trim(); onBack=true; i++; continue; }
+      if(/^:::[ \t]*$/.test(lines[i])){ i++; break; }
+      (onBack?back:front).push(lines[i++]);
+    }
+    out+=flipCard(renderLetter(front.join('\n').trim()),fi,renderLetter(back.join('\n').trim()),bi);
+  }
+  flush();
+  return out;
+}
+function toggleFlip(f){
+  const on=f.getAttribute('aria-pressed')!=='true';
+  f.setAttribute('aria-pressed',on?'true':'false');
+  f.querySelector('.flip-front').setAttribute('aria-hidden',on?'true':'false');
+  f.querySelector('.flip-back').setAttribute('aria-hidden',on?'false':'true');
+}
+addEventListener('click',e=>{ const f=e.target.closest&&e.target.closest('.flip'); if(f) toggleFlip(f); });
+addEventListener('keydown',e=>{ if(e.key!=='Enter'&&e.key!==' ') return;
+  const f=e.target.closest&&e.target.closest('.flip'); if(f){ e.preventDefault(); toggleFlip(f); } });
+
+/* ---------- lightbox: the grid crops to 4:3, this shows the whole frame ---------- */
+const LB={list:[],i:0,back:null};
+function lbEls(){ const el=document.getElementById('lb'); return {el,img:el.querySelector('img'),count:el.querySelector('.lb-count')}; }
+function lbShow(){
+  const {el,img,count}=lbEls();
+  img.src=LB.list[LB.i]; img.alt=`Photo ${LB.i+1} of ${LB.list.length}`;
+  count.textContent=`${LB.i+1} / ${LB.list.length}`;
+  el.classList.toggle('single',LB.list.length<2);
+}
+function lbOpen(list,i){
+  const {el}=lbEls();
+  LB.list=list; LB.i=i; LB.back=document.activeElement;
+  el.hidden=false; el.classList.add('on');
+  document.documentElement.style.overflow='hidden';   // the story is long; freeze it behind the photo
+  lbShow(); el.querySelector('.lb-x').focus();
+}
+function lbClose(){
+  const {el,img}=lbEls();
+  el.classList.remove('on'); el.hidden=true; img.removeAttribute('src');
+  document.documentElement.style.overflow='';
+  if(LB.back&&LB.back.focus) LB.back.focus();
+}
+const lbStep=d=>{ if(LB.list.length<2) return; LB.i=(LB.i+d+LB.list.length)%LB.list.length; lbShow(); };
+function lbFrom(img){
+  const imgs=[...img.closest('.photos').querySelectorAll('img')];
+  lbOpen(imgs.map(n=>n.src), imgs.indexOf(img));
+}
+addEventListener('click',e=>{
+  const p=e.target.closest&&e.target.closest('.photos img'); if(p){ lbFrom(p); return; }
+  const el=document.getElementById('lb'); if(!el||!el.classList.contains('on')) return;
+  const b=e.target.closest('button');
+  if(b&&b.classList.contains('lb-prev')) return lbStep(-1);
+  if(b&&b.classList.contains('lb-next')) return lbStep(1);
+  if(b&&b.classList.contains('lb-x')) return lbClose();
+  if(e.target===el) lbClose();                        // tapping the backdrop closes
+});
+addEventListener('keydown',e=>{
+  const p=e.target.closest&&e.target.closest('.photos img');
+  if(p&&(e.key==='Enter'||e.key===' ')){ e.preventDefault(); return lbFrom(p); }
+  const el=document.getElementById('lb'); if(!el||!el.classList.contains('on')) return;
+  if(e.key==='Escape') lbClose();
+  else if(e.key==='ArrowLeft') lbStep(-1);
+  else if(e.key==='ArrowRight') lbStep(1);
+});
+let lbX=null;
+addEventListener('touchstart',e=>{ const el=document.getElementById('lb');
+  lbX = el&&el.classList.contains('on') ? e.changedTouches[0].clientX : null; },{passive:true});
+addEventListener('touchend',e=>{ if(lbX===null) return;
+  const dx=e.changedTouches[0].clientX-lbX; lbX=null;
+  if(Math.abs(dx)>50) lbStep(dx<0?1:-1); },{passive:true});
+
 const fmtDate=d=>{const [y,m,dd]=d.split('-').map(Number);return new Date(y,m-1,dd).toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});};
 
 /* ---------- scenes: each card gets the matching scene of its day (in order) ---------- */
@@ -410,11 +566,11 @@ async function main(){
     const views=assignScenes(day, byDate[day.date]);
     day.cards.forEach((c,ci)=>{
       const v=views[ci]; CARDS.push({day,card:c,view:v});
-      const photos=c.photos.length?`<div class="photos">${c.photos.map(p=>`<figure><img src="${PHOTO_DIR+p}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'missing',textContent:'${esc(p)}'}))"></figure>`).join('')}</div>`:'';
+      const photos=c.photos.length?`<div class="photos">${c.photos.map(p=>`<figure><img src="${PHOTO_DIR+p}" alt="" loading="lazy" tabindex="0" role="button" aria-label="Open photo full screen" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'missing',textContent:'${esc(p)}'}))"></figure>`).join('')}</div>`:'';
       html+=`<article class="card" data-k="${k++}">
         <header><div class="n${ci?' cont':''}">${day.n}</div><div class="place">${esc(c.place||day.place)}</div>
         <div class="meta"><span>${fmtDate(day.date)}</span>${v&&v.label?`<span>${esc(v.label)}</span>`:''}</div></header>
-        ${photos}<div class="letter">${renderLetter(c.text)}</div></article><div class="gap"></div>`;
+        ${photos}<div class="letter">${renderBody(c.text)}</div></article><div class="gap"></div>`;
     });
   });
   document.getElementById('story').innerHTML=html;
