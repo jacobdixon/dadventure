@@ -117,6 +117,7 @@ dad
 ## Day 5
 date: 2026-08-26
 place: The cabin
+photos: day05-1.jpg
 
 today was windy. the whole day. but i sailed yesterday so my body said "nah, not today."
 
