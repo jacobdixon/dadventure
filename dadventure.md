@@ -21,13 +21,20 @@ Photos listed on the day go on the first card; add a photos: line after a
 A card can also carry its own place: line after the ---, to title its own leg.
 Without one it inherits the day's place:.
 To link a phrase, write it as [the words](https://the-url).
+To hide a second version of a paragraph behind it, fence it like this:
+  :::flip tap to see what i actually wrote
+  the paragraph everyone sees
+  :::back tap to flip it back
+  what is behind it
+  :::
+Both invite lines are optional.
 To add a day, copy any block and paste it at the bottom. That's it.
 -->
 
 ## Day 1
 date: 2026-08-22
 place: Seattle → Milwaukee
-photos: 460.jpg, 462.jpg
+photos: day01-1.jpg
 
 mom took me to the airport so early and the bag drop and security were so smooth that i was forced to use a lounge pass and kill some time drinking free coffee and eating free pastries with lovely views.
 
@@ -35,6 +42,7 @@ i watched the 2014 film 'get on up,' a movie about james brown. the grooves were
 
 ---
 place: Milwaukee → Shorewood
+photos: day01-2.jpg, day01-3.jpg
 
 i get the text message from avis, it feels like this time the ez exit will work. i fly through the terminal, get to my car in spot f5, scan my barcode and cruise right on out of the terminal headed to shorewood. 96.5 is playing billy idol, white wedding. feels like the right anthem for the start of a dadventure. something nags though, just as billy is yelling "it's a nice day to start again!!" i realize, as i am crossing the bridge over the milwaukee river, that i forgot my luggage. back to the airport. i get back to carousel 4 just in time to see the baggage agent with my bag. "you made my weekend" i said as i started back to the rental car, again.
 
@@ -54,7 +62,7 @@ dad
 ## Day 2
 date: 2026-08-23
 place: Milwaukee, WI
-photos: day2-coffee.png, day2-reunion.png
+photos: day02-1.jpg
 
 i got up too early today. after struggling with the old timey fixtures that i grew up with (literally on the same block as my childhood home. btw, you pull the knob out to turn the water on), i took a shower.
 
@@ -70,7 +78,6 @@ dad
 ## Day 3
 date: 2026-08-24
 place: Milwaukee → Minocqua
-photos: 490.jpg
 
 today i woke up with a fully charged phone. said goodbye to my lovely hosts jordan and abi and let them know that i had vague memories of the kitchen before their update. like green and floral wallpaper or something i said, abi responded "that sounds amazing."
 
@@ -80,6 +87,7 @@ if you aren't shouting along to ["ma bell, i got the ill communication"](https:/
 
 ---
 place: The cabin
+photos: day03-1.jpg, day03-2.jpg
 
 i arrived to a perfect day. everyone was out on the lake, except for mark who came up to greet me. i paddled out. odette and miles had made camp across the lake, the water is so low there are beaches for miles. no pun intended. they had a fire going. mom was on the lake too enjoying her own beach to the west.
 
@@ -94,7 +102,6 @@ dad
 ## Day 4
 date: 2026-08-25
 place: The cabin
-photos:
 
 woke up a little late after a long night. finspan is an upgrade over wingspan.
 
@@ -110,7 +117,6 @@ dad
 ## Day 5
 date: 2026-08-26
 place: The cabin
-photos: 500.jpg, day5-bird.png
 
 today was windy. the whole day. but i sailed yesterday so my body said "nah, not today."
 
@@ -125,7 +131,6 @@ miss you guys, send news, love, dad!
 ## Day 6
 date: 2026-08-27
 place: Minocqua → Chicago
-photos:
 
 left the cabin at 630a. still not entirely sure if i left anything behind. 5 and a half hour drive to chicago. it was a long one. good tunes again, lots of construction in chicago. go figure.
 
@@ -140,7 +145,7 @@ dad
 ## Day 7
 date: 2026-08-28
 place: Chicago → Montreal
-photos: 510.jpg, 511.jpg
+photos: day07-1.jpg
 
 woke up today in my studio and ran a work meeting. we picked someone to hire!
 
@@ -148,6 +153,7 @@ i got a text from dros at 10a, he just arrived at o'hare from milwaukee so i wen
 
 ---
 place: Montreal, QC
+photos: day07-2.jpg, day07-3.jpg
 
 on the way to our place for the weekend, i practiced some french on our lyft driver. not bad he said (in english). here is a shot of customs and our spot poolside in our villa.
 
@@ -157,7 +163,7 @@ dad
 ## Day 8
 date: 2026-08-29
 place: Montreal, QC
-photos: 522.jpg, 525.jpg, 526.jpg
+photos: day08-1.jpg, day08-2.jpg, day08-3.jpg, day08-4.jpg, day08-5.jpg
 
 got up early to get ready for our bike tour of montreal. what a cool city!! our tour guide was pretty funny and even nice to us despite being americans. we took a couple of good group photos. lunch outside at the brewpub and then an afternoon in the pool and hot tub where we could watch the sounders. what great goals from our new striker!
 
@@ -169,7 +175,7 @@ dad
 ## Day 9
 date: 2026-08-30
 place: Montreal, QC
-photos: 536.jpg
+photos: day09-1.jpg, day09-2.jpg
 
 can't believe it's day 9 already. today was the cml draft. all i wanted was to not have aaron rodgers on my team. i do. then i got kirk cousins and tua tagovailoa, we joked it's the worst draft in league history. fastest ever though, so we were able to enjoy the sun and the pool. a rainstorm sent most of us inside. not me. hot tub in a rainstorm, yes please.
 
@@ -180,13 +186,14 @@ love, dad
 ## Day 10
 date: 2026-08-31
 place: Montreal → Burlington, VT → Sugar Hill, NH
-photos: 542.jpg, 545.jpg, 549.jpg, 550.jpg
+photos: day10-1.jpg, day10-2.jpg
 
 got up stupid early, 6:30a, to do mount royal before we needed to be out of the airbnb. dros had lost his wallet the day before, we all did the seinfeld bit, and today dan's car keys were missing. i had borrowed the car to get supplies but he remembered me handing them back, so i was off the hook. i asked him if anyone else borrowed his car and he said yes. cal had used it to get the portuguese chicken (which was amazing). cal was at the airport about to board a flight and did indeed find dan's keys in his shorts. so sean and i chilled by the pool while dan took his first of two trips to airports today.
 
 dan and i were last out of the house and drove across the border where i learned my nexus card had not been activated. it was still accepted though. i also learned today that the bar where phish got their start closed permanently last summer... just missed it. so dan and i had lunch at zero gravity brewpub in the microbrew district of burlington, vermont.
 
 ---
+photos: day10-3.jpg
 
 i am now in new hampshire and at another brewpub where i am having pizza outside at sunset!
 
@@ -198,7 +205,7 @@ dad.
 ## Day 11
 date: 2026-09-01
 place: White Mountains, NH → Concord, NH → Portland, ME
-photos: 562.jpg, 564.jpg, 567.jpg
+photos: day11-1.jpg, day11-2.jpg
 
 today i woke up super early. saw gorgeous sunrise colors against the white mountains. then i drove all over them. they are nice. good mountains. i stopped at the kancamagus pass, elev. 2855, to take a photo.
 
@@ -208,6 +215,7 @@ ok, on to portland, me. so, back to rental car, check my e-mail for my next hote
 
 ---
 place: Portland, ME
+photos: day11-3.jpg, day11-4.jpg
 
 old port portland, me is adorable, very old city, the cobblestone streets and brick buildings feel very much like a dickens novel (i should probably update my literature reference to include old-timey americans.) i found a spot on the actual wharf and had a trio of rolls, lobster, shrimp and crab. saw a harbor seal, and a fisherman feeding seagulls.
 
@@ -218,7 +226,7 @@ ps. omg just realized tomorrow is supposed to be the first day of school. and it
 ## Day 12
 date: 2026-09-02
 place: Portland → Augusta
-photos: 574.jpg, 578.jpg, 581.jpg, 585.jpg
+photos: day12-1.jpg
 
 woke up right on time this morning in my portland hotel. i drove to augusta where i greeted all of the state capitol workers i passed with a hearty "good morning!" got my selfie and headed to the local coffee shop which was many blocks away, poor state capitol workers. conversation went like this:
 
@@ -239,6 +247,7 @@ other patron in coffee shop: \<very loud laugh>
 
 ---
 place: Cape Elizabeth → Salem
+photos: day12-2.jpg, day12-3.jpg, day12-4.jpg
 
 and with that i was on my way to portland head light on cape elizabeth. the "sign our guest book" sign got me, with "world" in scare quotes. ok, i will. learned that lighthouses aren't really my jam, which is weird because i like boats and don't like boat crashes.
 
@@ -255,14 +264,21 @@ dad
 ## Day 13
 date: 2026-09-03
 place: Boston → Hartford → Providence → Boston
-photos: PXL_20260903_131135839.jpg, PXL_20260903_134928472.MP.jpg, PXL_20260903_153805658.jpg, PXL_20260903_160548100.jpg, PXL_20260903_163137526.jpg, PXL_20260903_163634201.MACRO_FOCUS.jpg
+photos: day13-1.jpg, day13-2.jpg
 
 i blasted out of boston before 7a this morning slicing through the new england fog with my mitsubishi and had a thought. i know i have to be at the capitol to document evidence of my visit, but i hadn't considered that the capitol has to be there too. i imagined people gathered around asking, is the "capitol out today?" does it disappear like rainier does on days that aren't clear enough? we might never know, the skies cleared up as i rolled into hartford, ct.
 
+:::flip tap to see what i actually wrote
 the coffee shop lay at such a distance that a man might reasonably pack a trunk for the journey, and i spared a thought for the capitol clerks who make that expedition daily and are paid in blisters. my own cup did not last the trip, it quit its vessel at the first jolt and went about its business elsewhere. i arrived at mr. mark twain's house wearing most of it. handsome house; i have nothing against it. it is hartford i object to, which has taken the simple duty of paving a street and elevated it into a question of character, and comes out badly.
+:::back tap to flip it back
+the coffee shop was again too far, poor capitol workers. and it splashed out of its cup on my way to mark twain's house. cool house. hartford is bumpy.
+
+(then i asked a robot to mark twain it.)
+:::
 
 ---
 place: Hartford → Providence
+photos: day13-3.jpg, day13-4.jpg, day13-5.jpg, day13-6.jpg
 
 the road into providence was eerily quiet. like almost no traffic on the highway for about 30 miles, either direction. the city was quaint and the capitol grand, really grande. i found one of the oldest libraries in the us.
 
@@ -282,7 +298,6 @@ dad
 ## Day 14
 date: 2026-09-04
 place: Boston → Denver
-photos: 618.jpg, 620.jpg
 
 woke up incredibly early and returned the rental car to the airport. made it to the gate with plenty of time to spare.
 
@@ -290,6 +305,7 @@ long flight to denver, long car ride to hotel, long nap and then long shower.
 
 ---
 place: Denver
+photos: day14-1.jpg, day14-2.jpg
 
 i met greg and tom in the lobby of the hotel to play a board game!
 
@@ -303,7 +319,7 @@ dad
 ## Day 15
 date: 2026-09-05
 place: Denver
-photos: 636.jpg, 637.jpg, 628.jpg, 651.jpg, 633.jpg
+photos: day15-1.jpg, day15-2.jpg, day15-3.jpg
 
 woke up right on time today. imagine my delight when i realized that denver is the capital of colorado. bonus capitol here i come. modest structure, simple design. coffee was less than a block away and delicious. found the most amazing deli, with the most amazing breakfast sandwich. the contrast between jordan's deli in denver and olneyville in providence is hilariously extreme. my favorite contrast of the trip so far.
 
@@ -313,6 +329,7 @@ met tom and greg at the diner with the 38-page menu and feasted. retired to the 
 
 ---
 place: Denver
+photos: day15-4.jpg
 
 phish show, night two. huge jams, big energy, and one of my favorite live performances yet, 'free' in set one. wow!
 
@@ -324,7 +341,7 @@ dad
 ## Day 16
 date: 2026-09-06
 place: Denver
-photos: PXL_20260906_170429424.jpg, PXL_20260906_190337270.MP.jpg, PXL_20260907_021505738.MP.jpg
+photos: day16-1.jpg, day16-2.jpg
 
 woke up right on time this morning. found a good coffee shop near the hotel and got a drink called the squirrel. i know, didn't we just learn this lesson? two things. i was definitely going with iced coffee, because even at 9:30a it was 80 degrees in denver. the squirrel is the house cold brew concentrated, over ice, with almond milk. barista finished making it and yells, "squirrel!!!" and stares at me wide eyed for a few seconds. me: "\<chuckle> thanks, ordered the drink just for that moment." this was sort of true. i like my coffee black, and more often than not hot. this was like a coffee milkshake and i would have it again on a blistering hot morning.
 
@@ -334,6 +351,7 @@ back towards hotel for a quick green chili burrito, which as far as i can tell i
 
 ---
 place: Denver
+photos: day16-3.jpg
 
 they say never miss a sunday show at dick's. and it did not disappoint. even after three straight shows i feel like i could go again and not get tired. so fun. and so great to experience it with friends tom and greg!
 
