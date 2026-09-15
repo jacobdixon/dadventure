@@ -90,6 +90,34 @@
   .letter p:last-child{margin-bottom:0}
   .letter .sig{font-family:"Fraunces",serif;font-style:italic;font-weight:500}
 
+  /* ---------- a card inside the card: tap to flip a paragraph over ---------- */
+  .flip{display:block;margin:0 0 1.1em;cursor:pointer;perspective:1400px;-webkit-tap-highlight-color:transparent}
+  .flip-inner{display:grid;transition:transform .55s cubic-bezier(.2,.75,.2,1);transform-style:preserve-3d}
+  .flip[aria-pressed="true"] .flip-inner{transform:rotateY(180deg)}
+  /* both faces share one grid cell, so the card is as tall as the longer of the two; the shorter
+     face centres itself in that box rather than leaving a hole under it */
+  .flip-face{grid-area:1/1;backface-visibility:hidden;-webkit-backface-visibility:hidden;
+    display:flex;flex-direction:column;justify-content:center;
+    background:var(--paper-2);border:1px solid var(--rule);border-radius:10px;padding:18px 18px 13px}
+  .flip-back{transform:rotateY(180deg)}
+  .flip-face p{margin:0 0 .8em}
+  .flip-face p:last-of-type{margin-bottom:0}
+  .flip-hint{display:flex;align-items:center;gap:7px;margin-top:13px;padding-top:11px;border-top:1px dashed var(--rule);
+    color:var(--route);font-size:15px;font-style:italic}
+  .flip-hint svg{flex:none;transition:transform .55s cubic-bezier(.2,.75,.2,1)}
+  .flip:hover .flip-hint span,.flip:focus-visible .flip-hint span{text-decoration:underline;text-underline-offset:3px}
+  .flip:hover .flip-hint svg{transform:rotate(180deg)}
+  .flip:focus-visible{outline:3px solid #F2D14F;outline-offset:4px;border-radius:12px}
+  /* no spinning for anyone who asked not to be spun at: cross-fade the two faces instead */
+  @media (prefers-reduced-motion:reduce){
+    .flip-inner{transform:none!important;transition:none}
+    .flip-face{backface-visibility:visible;transition:opacity .25s ease}
+    .flip-back{transform:none;opacity:0}
+    .flip[aria-pressed="true"] .flip-back{opacity:1}
+    .flip-hint svg{transition:none}
+    .flip:hover .flip-hint svg{transform:none}
+  }
+
   /* ---------- desktop: cards ride the right side so the map stays readable on the left ---------- */
   @media (min-width:1000px){
     :root{--card-w:560px}
@@ -171,13 +199,59 @@ function renderLetter(text){
     let h=esc(p.replace(/\\([<>*])/g,'$1'));
     // [some words](https://...) links the phrase itself; a bare URL still linkifies to just its domain
     const links=[];
-    h=h.replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g,(m,t,u)=>` ${links.push(`<a href="${u}" target="_blank" rel="noopener">${t}</a>`)-1} `);
+    h=h.replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g,(m,t,u)=>'@@L'+(links.push(`<a href="${u}" target="_blank" rel="noopener">${t}</a>`)-1)+'@@');
     h=h.replace(/(https?:\/\/[^\s<]+)/g,u=>`<a href="${u}" target="_blank" rel="noopener">${u.replace(/^https?:\/\/(www\.)?/,'').split('/')[0]}</a>`);
-    h=h.replace(/ (\d+) /g,(m,n)=>links[+n]);
+    h=h.replace(/@@L(\d+)@@/g,(m,n)=>links[+n]);
     const sig=i===paras.length-1 && /^(love|miss you|lots of love|dad|oh canada)/i.test(p.trim());
     return `<p${sig?' class="sig"':''}>${h}</p>`;
   }).join('');
 }
+/* ---------- flip cards ----------
+   A paragraph can hide a second version of itself behind it:
+
+     :::flip tap to see what i actually wrote
+     the front text
+     :::back tap to flip back
+     the text behind it
+     :::
+
+   Both invites are optional; the defaults are the ones above. */
+const FLIP_ICON='<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 0 1 15.3-6.4L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15.3 6.4L3 16"/><path d="M3 21v-5h5"/></svg>';
+const flipCard=(front,fi,back,bi)=>`<div class="flip" role="button" tabindex="0" aria-pressed="false">`
+  +`<div class="flip-inner">`
+  +`<div class="flip-face flip-front">${front}<div class="flip-hint">${FLIP_ICON}<span>${esc(fi)}</span></div></div>`
+  +`<div class="flip-face flip-back" aria-hidden="true">${back}<div class="flip-hint">${FLIP_ICON}<span>${esc(bi)}</span></div></div>`
+  +`</div></div>`;
+function renderBody(text){
+  const lines=text.split('\n'); let out='', buf=[], i=0;
+  const flush=()=>{ const t=buf.join('\n').trim(); if(t) out+=renderLetter(t); buf=[]; };
+  while(i<lines.length){
+    const open=lines[i].match(/^:::flip[ \t]*(.*)$/);
+    if(!open){ buf.push(lines[i++]); continue; }
+    flush(); i++;
+    const fi=(open[1]||'').trim()||'tap to see what i actually wrote';
+    const front=[], back=[]; let bi='tap to flip back', onBack=false;
+    while(i<lines.length){
+      const b=lines[i].match(/^:::back[ \t]*(.*)$/);
+      if(b){ if(b[1].trim()) bi=b[1].trim(); onBack=true; i++; continue; }
+      if(/^:::[ \t]*$/.test(lines[i])){ i++; break; }
+      (onBack?back:front).push(lines[i++]);
+    }
+    out+=flipCard(renderLetter(front.join('\n').trim()),fi,renderLetter(back.join('\n').trim()),bi);
+  }
+  flush();
+  return out;
+}
+function toggleFlip(f){
+  const on=f.getAttribute('aria-pressed')!=='true';
+  f.setAttribute('aria-pressed',on?'true':'false');
+  f.querySelector('.flip-front').setAttribute('aria-hidden',on?'true':'false');
+  f.querySelector('.flip-back').setAttribute('aria-hidden',on?'false':'true');
+}
+addEventListener('click',e=>{ const f=e.target.closest&&e.target.closest('.flip'); if(f) toggleFlip(f); });
+addEventListener('keydown',e=>{ if(e.key!=='Enter'&&e.key!==' ') return;
+  const f=e.target.closest&&e.target.closest('.flip'); if(f){ e.preventDefault(); toggleFlip(f); } });
+
 const fmtDate=d=>{const [y,m,dd]=d.split('-').map(Number);return new Date(y,m-1,dd).toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});};
 
 /* ---------- scenes: each card gets the matching scene of its day (in order) ---------- */
@@ -414,7 +488,7 @@ async function main(){
       html+=`<article class="card" data-k="${k++}">
         <header><div class="n${ci?' cont':''}">${day.n}</div><div class="place">${esc(c.place||day.place)}</div>
         <div class="meta"><span>${fmtDate(day.date)}</span>${v&&v.label?`<span>${esc(v.label)}</span>`:''}</div></header>
-        ${photos}<div class="letter">${renderLetter(c.text)}</div></article><div class="gap"></div>`;
+        ${photos}<div class="letter">${renderBody(c.text)}</div></article><div class="gap"></div>`;
     });
   });
   document.getElementById('story').innerHTML=html;
