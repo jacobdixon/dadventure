@@ -11,6 +11,7 @@ Each day starts with a "## Day N" heading. The lines right under the heading
 (date:, place:, photos:) are settings the page reads. Then a blank line, then
 the letter itself. Write whatever you want in the letter; it's plain text.
 Photos go in the /photos folder and are listed by filename, comma-separated.
+A video (.mp4) can go in the same list; put a poster .jpg of the same name beside it.
 
 A line with just --- splits a day into cards. Each card shows the matching
 "scene" for that day from timeline.json, in order (first card, first scene).
@@ -102,6 +103,7 @@ dad
 ## Day 4
 date: 2026-08-25
 place: The cabin
+photos: day04-loons.mp4
 
 woke up a little late after a long night. finspan is an upgrade over wingspan.
 
@@ -117,7 +119,7 @@ dad
 ## Day 5
 date: 2026-08-26
 place: The cabin
-photos: day05-1.jpg
+photos: day05-1.jpg, day05-2.jpg
 
 today was windy. the whole day. but i sailed yesterday so my body said "nah, not today."
 
