@@ -164,7 +164,7 @@ dad
 ## Day 8
 date: 2026-08-29
 place: Montreal, QC
-photos: day08-1.jpg, day08-2.jpg, day08-3.jpg, day08-4.jpg, day08-5.jpg
+photos: day08-1.jpg, day08-2.jpg, day08-3.jpg, day08-5.jpg
 
 got up early to get ready for our bike tour of montreal. what a cool city!! our tour guide was pretty funny and even nice to us despite being americans. we took a couple of good group photos. lunch outside at the brewpub and then an afternoon in the pool and hot tub where we could watch the sounders. what great goals from our new striker!
 
