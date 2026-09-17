@@ -92,6 +92,8 @@
   /* a video in the photo grid takes the full row and shows its whole frame; portrait clips stay a sane height */
   .photos figure.vid,.photos figure.vid:first-child:nth-last-child(odd){grid-column:span 2;aspect-ratio:auto;background:#1C261C;display:grid;place-items:center}
   .photos figure.vid video{display:block;width:100%;max-height:70vh;object-fit:contain;cursor:default}
+  .photos figcaption{position:absolute;left:0;right:0;bottom:0;padding:18px 9px 6px;font-size:12px;font-style:italic;letter-spacing:.02em;
+    color:var(--paper);text-align:right;pointer-events:none;background:linear-gradient(to top,rgba(20,26,20,.55),rgba(20,26,20,0))}
   .photos .missing{position:absolute;inset:0;display:grid;place-items:center;padding:10px;text-align:center;color:var(--ink-3);font-size:13px;border:1px dashed var(--rule);border-radius:6px;font-style:italic}
   .letter p{margin:0 0 1.1em;white-space:pre-line;max-width:60ch}
   .letter p:last-child{margin-bottom:0}
@@ -117,7 +119,8 @@
   .lb .lb-next{right:10px;top:50%;transform:translateY(-50%)}
   .lb .lb-count{position:absolute;bottom:max(16px,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);
     color:var(--paper);opacity:.7;font-size:14px;letter-spacing:.05em;font-style:italic}
-  .lb.single .lb-prev,.lb.single .lb-next,.lb.single .lb-count{display:none}
+  .lb.single .lb-prev,.lb.single .lb-next{display:none}
+  .lb .lb-count:empty{display:none}
   /* on a phone the arrows sit in the bottom corners, out of the way of the picture */
   @media (max-width:560px){
     .lb .lb-prev,.lb .lb-next{top:auto;transform:none;bottom:max(12px,env(safe-area-inset-bottom))}
@@ -234,6 +237,8 @@ function parseContent(src){
   return {fm,days};
 }
 const splitList=s=>(s||'').split(',').map(x=>x.trim()).filter(Boolean);
+// a photo can carry a caption after a pipe:  day06-1.jpg | photo credit: Adam L.
+const photoRef=p=>{const i=p.indexOf('|'); return i<0?{file:p,cap:''}:{file:p.slice(0,i).trim(),cap:p.slice(i+1).trim()};};
 const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 function renderLetter(text){
   const paras=text.split(/\n\s*\n/);
@@ -295,17 +300,18 @@ addEventListener('keydown',e=>{ if(e.key!=='Enter'&&e.key!==' ') return;
   const f=e.target.closest&&e.target.closest('.flip'); if(f){ e.preventDefault(); toggleFlip(f); } });
 
 /* ---------- lightbox: the grid crops to 4:3, this shows the whole frame ---------- */
-const LB={list:[],i:0,back:null,pushed:false};
+const LB={list:[],caps:[],i:0,back:null,pushed:false};
 function lbEls(){ const el=document.getElementById('lb'); return {el,img:el.querySelector('img'),count:el.querySelector('.lb-count')}; }
 function lbShow(){
   const {el,img,count}=lbEls();
   img.src=LB.list[LB.i]; img.alt=`Photo ${LB.i+1} of ${LB.list.length}`;
-  count.textContent=`${LB.i+1} / ${LB.list.length}`;
+  const cap=LB.caps[LB.i]||'', n=LB.list.length>1?`${LB.i+1} / ${LB.list.length}`:'';
+  count.textContent=n&&cap?`${n} · ${cap}`:n||cap;
   el.classList.toggle('single',LB.list.length<2);
 }
-function lbOpen(list,i){
+function lbOpen(list,i,caps){
   const {el}=lbEls();
-  LB.list=list; LB.i=i; LB.back=document.activeElement;
+  LB.list=list; LB.caps=caps||[]; LB.i=i; LB.back=document.activeElement;
   el.hidden=false; el.classList.add('on');
   document.documentElement.style.overflow='hidden';   // the story is long; freeze it behind the photo
   lbShow(); el.querySelector('.lb-x').focus();
@@ -326,7 +332,7 @@ addEventListener('popstate',()=>{ if(LB.pushed){ LB.pushed=false; lbHide(); } })
 const lbStep=d=>{ if(LB.list.length<2) return; LB.i=(LB.i+d+LB.list.length)%LB.list.length; lbShow(); };
 function lbFrom(img){
   const imgs=[...img.closest('.photos').querySelectorAll('img')];
-  lbOpen(imgs.map(n=>n.src), imgs.indexOf(img));
+  lbOpen(imgs.map(n=>n.src), imgs.indexOf(img), imgs.map(n=>n.dataset.cap||''));
 }
 addEventListener('click',e=>{
   const p=e.target.closest&&e.target.closest('.photos img'); if(p){ lbFrom(p); return; }
@@ -584,7 +590,7 @@ async function main(){
     const views=assignScenes(day, byDate[day.date]);
     day.cards.forEach((c,ci)=>{
       const v=views[ci]; CARDS.push({day,card:c,view:v});
-      const photos=c.photos.length?`<div class="photos">${c.photos.map(p=>/\.(mp4|webm|mov)$/i.test(p)?`<figure class="vid"><video src="${PHOTO_DIR+p}" poster="${PHOTO_DIR+p.replace(/\.[^.]+$/,'.jpg')}" controls playsinline preload="none" aria-label="Video"></video></figure>`:`<figure><img src="${PHOTO_DIR+p}" alt="" loading="lazy" tabindex="0" role="button" aria-label="Open photo full screen" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'missing',textContent:'${esc(p)}'}))"></figure>`).join('')}</div>`:'';
+      const photos=c.photos.length?`<div class="photos">${c.photos.map(photoRef).map(({file:p,cap})=>/\.(mp4|webm|mov)$/i.test(p)?`<figure class="vid"><video src="${PHOTO_DIR+p}" poster="${PHOTO_DIR+p.replace(/\.[^.]+$/,'.jpg')}" controls playsinline preload="none" aria-label="Video"></video>${cap?`<figcaption>${esc(cap)}</figcaption>`:''}</figure>`:`<figure><img src="${PHOTO_DIR+p}" alt="${esc(cap)}" data-cap="${esc(cap)}" loading="lazy" tabindex="0" role="button" aria-label="Open photo full screen" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'missing',textContent:'${esc(p)}'}))">${cap?`<figcaption>${esc(cap)}</figcaption>`:''}</figure>`).join('')}</div>`:'';
       html+=`<article class="card" data-k="${k++}">
         <header><div class="n${ci?' cont':''}">${day.n}</div><div class="place">${esc(c.place||day.place)}</div>
         <div class="meta"><span>${fmtDate(day.date)}</span>${v&&v.label?`<span>${esc(v.label)}</span>`:''}</div></header>

@@ -12,6 +12,7 @@ Each day starts with a "## Day N" heading. The lines right under the heading
 the letter itself. Write whatever you want in the letter; it's plain text.
 Photos go in the /photos folder and are listed by filename, comma-separated.
 A video (.mp4) can go in the same list; put a poster .jpg of the same name beside it.
+A caption goes after a pipe:  day06-1.jpg | photo credit: Adam L.
 
 A line with just --- splits a day into cards. Each card shows the matching
 "scene" for that day from timeline.json, in order (first card, first scene).
@@ -139,7 +140,7 @@ left the cabin at 630a. still not entirely sure if i left anything behind. 5 and
 
 ---
 place: Oak & Highland Parks, IL
-photos: day06-1.jpg
+photos: day06-1.jpg | photo credit: Adam L.
 
 had a long and lovely lunch with sian and an afternoon coffee. she has so much going on and is so calm and collected. really great to catch up with her. i make it to highland park to catch up with adam. we ascertain that it has been eight years since we last had a beer together. in fact willow hadn't even been born yet. i missed amelia who was on her way to soccer practice but i did catch colton and tamara. this family is even more charming than they were the last time we saw them. talked about hitting the neighborhood 'yacht club' for the lunar eclipse tonight, but i ran out of gas and had to put myself to bed. hope you guys had good viewing conditions!
 
