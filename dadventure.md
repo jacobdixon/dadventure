@@ -62,7 +62,7 @@ dad
 ## Day 2
 date: 2026-08-23
 place: Milwaukee, WI
-photos: day02-1.jpg
+photos: day02-1.jpg, day02-2.jpg
 
 i got up too early today. after struggling with the old timey fixtures that i grew up with (literally on the same block as my childhood home. btw, you pull the knob out to turn the water on), i took a shower.
 
@@ -164,7 +164,7 @@ dad
 ## Day 8
 date: 2026-08-29
 place: Montreal, QC
-photos: day08-1.jpg, day08-2.jpg, day08-3.jpg, day08-5.jpg
+photos: day08-1.jpg, day08-2.jpg, day08-6.jpg, day08-3.jpg, day08-5.jpg
 
 got up early to get ready for our bike tour of montreal. what a cool city!! our tour guide was pretty funny and even nice to us despite being americans. we took a couple of good group photos. lunch outside at the brewpub and then an afternoon in the pool and hot tub where we could watch the sounders. what great goals from our new striker!
 
