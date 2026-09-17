@@ -94,9 +94,13 @@
   .photos img{cursor:zoom-in}
   .photos figure:focus-within{outline:3px solid #F2D14F;outline-offset:2px;border-radius:6px}
   .lb{position:fixed;inset:0;z-index:20;display:none;place-items:center;background:rgba(20,26,20,.97);
-    padding:clamp(10px,3vw,40px);-webkit-tap-highlight-color:transparent}
+    --lb-pad:clamp(10px,3vw,40px);padding:var(--lb-pad);box-sizing:border-box;
+    grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr);-webkit-tap-highlight-color:transparent}
   .lb.on{display:grid}
-  .lb img{max-width:100%;max-height:100%;object-fit:contain;border-radius:4px;box-shadow:0 18px 60px rgba(0,0,0,.55)}
+  /* the picture never grows past the viewport, in either direction, on any screen */
+  .lb img{display:block;width:auto;height:auto;max-width:min(100%,calc(100vw - 2*var(--lb-pad)));
+    max-height:min(100%,calc(100vh - 2*var(--lb-pad)));max-height:min(100%,calc(100dvh - 2*var(--lb-pad)));
+    object-fit:contain;justify-self:center;align-self:center;border-radius:4px;box-shadow:0 18px 60px rgba(0,0,0,.55)}
   .lb button{position:absolute;background:rgba(255,255,255,.08);border:0;color:var(--paper);cursor:pointer;
     padding:13px;line-height:0;border-radius:999px;transition:background .2s}
   .lb button:hover{background:rgba(255,255,255,.2)}
@@ -284,7 +288,7 @@ addEventListener('keydown',e=>{ if(e.key!=='Enter'&&e.key!==' ') return;
   const f=e.target.closest&&e.target.closest('.flip'); if(f){ e.preventDefault(); toggleFlip(f); } });
 
 /* ---------- lightbox: the grid crops to 4:3, this shows the whole frame ---------- */
-const LB={list:[],i:0,back:null};
+const LB={list:[],i:0,back:null,pushed:false};
 function lbEls(){ const el=document.getElementById('lb'); return {el,img:el.querySelector('img'),count:el.querySelector('.lb-count')}; }
 function lbShow(){
   const {el,img,count}=lbEls();
@@ -298,13 +302,20 @@ function lbOpen(list,i){
   el.hidden=false; el.classList.add('on');
   document.documentElement.style.overflow='hidden';   // the story is long; freeze it behind the photo
   lbShow(); el.querySelector('.lb-x').focus();
+  // one history entry per open, so the phone's back button closes the photo instead of leaving the page
+  try{ history.pushState({lb:true},'',location.href); LB.pushed=true; }catch(_){ LB.pushed=false; }
 }
-function lbClose(){
+function lbHide(){
   const {el,img}=lbEls();
   el.classList.remove('on'); el.hidden=true; img.removeAttribute('src');
   document.documentElement.style.overflow='';
   if(LB.back&&LB.back.focus) LB.back.focus();
 }
+function lbClose(){
+  if(LB.pushed){ history.back(); return; }   // popstate below does the closing, so the history stays tidy
+  lbHide();
+}
+addEventListener('popstate',()=>{ if(LB.pushed){ LB.pushed=false; lbHide(); } });
 const lbStep=d=>{ if(LB.list.length<2) return; LB.i=(LB.i+d+LB.list.length)%LB.list.length; lbShow(); };
 function lbFrom(img){
   const imgs=[...img.closest('.photos').querySelectorAll('img')];
